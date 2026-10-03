@@ -1,3 +1,3 @@
 
-window.BETA_SUPABASE_URL = https://vszwuvbqxhbsyqjcsdoe.supabase.co
-window.BETA_SUPABASE_KEY = sb_publishable_3RPcT-ut5mebA9e5fCESGQ_J0oZwC9G
+window.BETA_SUPABASE_URL = https://ncypvceseyrqunafwdnp.supabase.co
+window.BETA_SUPABASE_KEY = sb_publishable_8FSNT-yiDzLtuGKad8fJzg_XP09Rh9j
