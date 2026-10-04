@@ -1,124 +1,23 @@
 <!doctype html>
-<html lang="sl">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#20a56b">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="BETA GROUP">
-  <title>BETA GROUP – Evidenca delovnih ur</title>
-  <link rel="stylesheet" href="style.css">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-</head>
-<body>
-  <main id="app">
-    <section id="loginView" class="screen">
-      <div class="login-card">
-        <div class="brand">BETA GROUP</div>
-        <h1>Evidenca delovnih ur</h1>
-        <p>Digitalna evidenca delovnega časa · prihod, odhod in mesečni pregled</p>
-        <form id="loginForm">
-          <label>E-pošta<input id="loginEmail" type="email" autocomplete="username" required></label>
-          <label>Geslo<input id="loginPassword" type="password" autocomplete="current-password" required></label>
-          <button class="primary" type="submit">Prijava</button>
-        </form>
-        <p id="loginMsg" class="msg"></p>
-      </div>
-    </section>
-
-    <section id="mainView" class="hidden">
-      <header class="topbar">
-        <div>
-          <div class="brand">BETA GROUP</div>
-          <small>Evidenca delovnih ur</small>
-        </div>
-        <button id="logoutBtn" class="ghost">Odjava</button>
-      </header>
-
-      <div class="container">
-        <section class="hero">
-          <div>
-            <span class="eyebrow">DIGITALNA EVIDENCA</span>
-            <h1 id="welcomeTitle">Moja evidenca delovnega časa</h1>
-            <p>Prihod in odhod z enim dotikom. Mesečni pregled in pretekle mesece izbereš spodaj.</p>
-          </div>
-        </section>
-
-        <div id="workerPanel" class="panel hidden">
-          <div class="panel-head">
-            <div>
-              <h2>Danes</h2>
-              <p id="todayText"></p>
-            </div>
-            <span id="statusBadge" class="badge">—</span>
-          </div>
-          <div class="clock-actions">
-            <button id="arrivalBtn" class="primary big">PRIHOD NA DELO</button>
-            <button id="departureBtn" class="secondary big">ODHOD Z DELA</button>
-          </div>
-          <p id="locationStatus" class="msg"></p>
-        </div>
-
-        <section class="panel">
-          <div class="panel-head">
-            <div>
-              <h2>Mesečni pregled</h2>
-              <p>Pregled opravljenih ur in lokacij.</p>
-            </div>
-            <input id="monthPicker" class="month" type="month">
-          </div>
-          <div id="summaryCards" class="summary-grid"></div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Datum</th><th>Prihod</th><th>Odhod</th><th>Ure</th><th>Lokacija</th></tr></thead>
-              <tbody id="entriesBody"></tbody>
-            </table>
-          </div>
-        </section>
-
-        <section id="adminPanel" class="hidden">
-          <div class="panel">
-            <div class="panel-head">
-              <div><h2>Administratorski pregled</h2><p>Upravljanje delavcev, ur in lokacij.</p></div>
-            </div>
-
-            <div class="admin-grid">
-              <div class="admin-card">
-                <h3>Dodaj delavca</h3>
-                <p class="hint">Ustvari uporabnika neposredno prek varne Supabase Edge funkcije.</p>
-                <form id="workerForm">
-                  <label>Ime in priimek<input id="workerName" required></label>
-                  <label>E-pošta<input id="workerEmail" type="email" required></label>
-                  <label>Začasno geslo<input id="workerPassword" type="text" minlength="8" required></label>
-                  <button class="primary" type="submit">Dodaj delavca</button>
-                </form>
-                <p id="workerMsg" class="msg"></p>
-              </div>
-
-              <div class="admin-card">
-                <h3>Izbrani mesec</h3>
-                <label>Mesec<input id="adminMonth" class="month" type="month"></label>
-                <div id="adminTotal" class="admin-total">0 ur</div>
-              </div>
-            </div>
-
-            <h3 class="section-title">Delavci</h3>
-            <div class="table-wrap">
-              <table>
-                <thead><tr><th>Delavec</th><th>E-pošta</th><th>Ure v mesecu</th><th>Zadnji prihod</th></tr></thead>
-                <tbody id="workersBody"></tbody>
-              </table>
-            </div>
-
-            <h3 class="section-title">Lokacije prihodov in odhodov</h3>
-            <div id="locationList" class="location-list"></div>
-          </div>
-        </section>
-      </div>
-    </section>
-  </main>
-  <div id="toast" class="toast"></div>
-  <script src="config.js"></script>
-  <script src="app.js"></script>
-</body>
-</html>
+<html lang="sl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#174b3d"><title>BETA GROUP | Evidenca delovnih ur</title><link rel="manifest" href="./manifest.json"><link rel="stylesheet" href="./style.css"></head>
+<body><main class="app-shell">
+<header class="topbar"><div class="brandmark"><div class="brand-icon">BG</div><div><div class="brand-name">BETA GROUP</div><div class="brand-sub">EVIDENCA DELOVNEGA ČASA</div></div></div><div class="topbar-right"><span class="secure-dot"></span><span>Varna evidenca</span></div></header>
+<section class="welcome"><div><div class="eyebrow">DELOVNI ČAS · EVIDENCA</div><h1>Pregled delovnih ur</h1><p>Spremljajte prihod, odhod in mesečno evidenco na enem mestu.</p></div><div class="welcome-mark" aria-hidden="true">◷</div></section>
+<section id="setupNotice" class="notice hidden"><b>Potrebna je nastavitev aplikacije.</b><p>V datoteko <code>config.js</code> vnesite Supabase Project URL in Publishable key.</p></section>
+<section id="loginPanel" class="panel login-panel hidden"><div class="section-kicker">DOBRODOŠLI NAZAJ</div><h2>Prijava v evidenco</h2><p class="muted">Prijavite se za dostop do svoje delovne evidence.</p><form id="loginForm"><label for="email">E-pošta</label><input id="email" type="email" autocomplete="username" placeholder="ime@podjetje.si" required><label for="password">Geslo</label><input id="password" type="password" autocomplete="current-password" placeholder="Vnesite geslo" required><button type="submit">Prijava <span aria-hidden="true">→</span></button></form><p id="loginMessage" class="message" aria-live="polite"></p></section>
+<section id="appPanel" class="hidden"><div class="panel userbar"><div class="user-info"><div class="avatar">BG</div><div><span class="muted">Prijavljeni uporabnik</span><br><strong id="userEmail"></strong><br><span id="userRole" class="pill"></span></div></div><button id="logoutButton" class="secondary">Odjava ↗</button></div>
+<section id="workerPanel" class="hidden">
+<div class="section-heading"><div><div class="section-kicker">MOJA EVIDENCA</div><h2>Delovni čas</h2><p class="muted">Prihod in odhod zabeležite z enim dotikom.</p></div></div>
+<div class="clock-panel panel"><div class="clock-copy"><span class="clock-label">DNEVNA REGISTRACIJA</span><h3>Ste začeli ali zaključili z delom?</h3><p>Ob registraciji dovoljena lokacija se shrani skupaj z dogodkom.</p></div><div class="actions clock-actions"><button id="arrivalButton"><span class="button-symbol">↘</span> Prihod na delo</button><button id="departureButton" class="secondary"><span class="button-symbol">↗</span> Odhod z dela</button></div><p id="clockMessage" class="message" aria-live="polite"></p></div>
+<div class="month-toolbar"><div><label for="monthPicker">Izbrano obdobje</label><div class="muted">Preglejte ta mesec ali starejšo evidenco.</div></div><input id="monthPicker" type="month" aria-label="Izberi mesec"></div>
+<div class="summary-grid"><div class="summary-card summary-primary"><div class="summary-top"><span>SKUPAJ UR</span><span class="summary-icon">◷</span></div><strong id="monthTotal">0:00</strong><small>V izbranem mesecu</small></div><div class="summary-card"><div class="summary-top"><span>DELOVNI DNEVI</span><span class="summary-icon">▦</span></div><strong id="monthDays">0</strong><small>Dnevi z zaključenim delom</small></div><div class="summary-card"><div class="summary-top"><span>REGISTRACIJE</span><span class="summary-icon">≡</span></div><strong id="monthEvents">0</strong><small>Prihodi in odhodi</small></div></div>
+<div class="panel table-panel"><div class="panel-heading"><div><div class="section-kicker">MESEČNI PREGLED</div><h3>Pregled po dnevih</h3></div><span class="mini-tag">Dnevna evidenca</span></div><div class="table-wrap"><table><thead><tr><th>Datum</th><th>Prihod</th><th>Odhod</th><th>Skupaj ur</th><th>Stanje</th></tr></thead><tbody id="monthlyHours"></tbody></table></div></div>
+<details class="panel history-panel" open><summary><span><span class="section-kicker">PODROBNOSTI</span><br><strong>Zgodovina registracij</strong></span><span class="details-chevron">⌄</span></summary><p class="muted">Vsi dogodki za izbrani mesec, vključno z zabeleženo lokacijo.</p><div class="table-wrap"><table><thead><tr><th>Datum in ura</th><th>Dogodek</th><th>Lokacija GPS</th></tr></thead><tbody id="myHours"></tbody></table></div></details>
+</section>
+<section id="adminPanel" class="panel admin-panel hidden"><div class="section-heading"><div><div class="section-kicker">UPRAVLJANJE</div><h2>Administratorski pregled</h2><p class="muted">Upravljajte delavce in spremljajte registracije.</p></div></div>
+<div class="admin-add panel"><div class="admin-add-head"><div class="admin-icon">＋</div><div><h3>Dodaj delavca</h3><p class="muted">Najprej ustvarite uporabnika v Supabase Authentication → Users → Add user. Nato vnesite njegov User UID.</p></div></div><form id="addWorkerForm" class="add-worker-form"><div><label for="workerName">Ime in priimek</label><input id="workerName" required maxlength="120" autocomplete="name" placeholder="Ime Priimek"></div><div><label for="workerUid">User UID iz Supabase Auth</label><input id="workerUid" required placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" pattern="[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}"></div><button type="submit" id="addWorkerButton">Dodaj delavca <span aria-hidden="true">→</span></button></form><p id="addWorkerMessage" class="message" aria-live="polite"></p></div>
+<div class="actions admin-actions"><button id="refreshButton">↻ Osveži podatke</button><button id="exportButton" class="secondary">↓ Izvozi CSV</button></div><p id="adminMessage" class="message" aria-live="polite"></p>
+<div class="panel table-panel"><div class="panel-heading"><div><div class="section-kicker">EKIPA</div><h3>Delavci</h3></div></div><div class="table-wrap"><table><thead><tr><th>Ime in priimek</th><th>ID</th><th>Status</th></tr></thead><tbody id="workersTable"></tbody></table></div></div>
+<div class="panel table-panel"><div class="panel-heading"><div><div class="section-kicker">ZAPISI</div><h3>Evidenca delovnih ur</h3></div></div><div class="table-wrap"><table><thead><tr><th>Datum in ura</th><th>Delavec</th><th>Dogodek</th><th>Lokacija GPS</th></tr></thead><tbody id="allHours"></tbody></table></div></div>
+</section></section>
+<footer><div class="footer-brand">BETA GROUP</div><span>Digitalna evidenca delovnega časa</span><span>© BETA GROUP</span></footer></main><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="./config.js"></script><script src="./app.js"></script></body></html>
