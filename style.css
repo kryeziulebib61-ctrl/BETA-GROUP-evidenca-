@@ -11,3 +11,5 @@
 .daily-map-links a{color:#2864dc;text-decoration:none;font-weight:700}
 .daily-map-links a:hover{text-decoration:underline}
 @media(max-width:760px){.daily-map-links{white-space:normal;min-width:110px}.worker-open{max-width:160px}}
+
+.worker-open{cursor:pointer;display:inline-flex;align-items:center;gap:6px}.worker-open:focus-visible{outline:3px solid #8eb4ff;outline-offset:2px}
