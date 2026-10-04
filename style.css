@@ -207,3 +207,11 @@ button.danger:hover{background:#ffe1e3}
 .manual-worker-summary{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:-4px}
 .manual-worker-summary .summary-card{min-height:108px}
 @media(max-width:760px){.manual-worker-summary{grid-template-columns:1fr 1fr}.manual-worker-summary .summary-card{min-width:0}}
+
+/* Make the BETA GROUP logo clearly visible on the first page */
+.welcome-logo{position:relative;z-index:2;display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin:0 16px 0 24px}
+.welcome-logo svg{display:block;width:76px;height:76px;filter:drop-shadow(0 5px 9px rgba(23,107,78,.12))}
+.worker-home-logo{display:flex;align-items:center;justify-content:center;gap:10px;margin:0 auto 8px;font-weight:900;letter-spacing:.08em;color:#173f32;font-size:22px}
+.worker-home-logo svg{display:block;width:44px;height:44px;flex:0 0 auto}
+@media(max-width:760px){.welcome-logo{margin:0 4px 0 10px}.welcome-logo svg{width:58px;height:58px}.worker-home-logo{font-size:19px}.worker-home-logo svg{width:38px;height:38px}}
+@media(max-width:390px){.welcome-logo svg{width:48px;height:48px}.welcome-logo{margin-right:0;margin-left:5px}}
