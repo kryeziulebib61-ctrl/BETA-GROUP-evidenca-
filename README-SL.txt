@@ -16,3 +16,6 @@ Pred dejansko uporabo preizkusite prijavo delavca, prihod/odhod, GPS, administra
 
 
 DODATNA SPREMEMBA: Administrator vidi tudi razdelek »Moja evidenca« z gumboma »Prihod na delo« in »Odhod z dela« za lastno evidenco. Oba gumba uporabljata prijavljeni administratorski račun.
+
+
+MESEČNI PREGLED: Delavec (tudi administrator) lahko izbere mesec, vidi dnevni pregled prihodov/odhodov, izračunane ure iz parov prihod-odhod in vse zapise za izbrani mesec. Pretekli meseci so na voljo prek izbirnika meseca.
