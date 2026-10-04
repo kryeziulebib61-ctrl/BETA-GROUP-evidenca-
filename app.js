@@ -237,8 +237,9 @@ $("allHours").addEventListener("click",async e=>{
  }
  if(del){
   const id=del.dataset.deleteId;if(!confirm("Ali res želite trajno izbrisati to registracijo? Tega ni mogoče razveljaviti."))return;
-  const {error}=await db.from("work_hours").delete().eq("id",id);
-  if(error){msg("adminMessage","Brisanje ni uspelo. Preverite administratorsko DELETE politiko v Supabase: "+error.message,true);return}
+  const {data:deletedRows,error}=await db.from("work_hours").delete().eq("id",id).select("id");
+  if(error){msg("adminMessage","Brisanje ni uspelo: "+error.message+". V Supabase zaženite popravek FAZA-3-DELETE-FIX.sql.",true);return}
+  if(!deletedRows||deletedRows.length===0){msg("adminMessage","Zapis ni bil izbrisan. Supabase najverjetneje blokira DELETE zaradi RLS pravic. Zaženite FAZA-3-DELETE-FIX.sql v Supabase SQL Editor.",true);return}
   msg("adminMessage","Registracija je izbrisana.");await loadAdmin();await renderSelectedAdminWorker();
  }
 });
