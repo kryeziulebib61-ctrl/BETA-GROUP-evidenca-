@@ -1,14 +1,15 @@
 BETA GROUP – Evidenca delovnih ur
 
-Datoteke v tej mapi so pripravljene za objavo prek GitHub Pages.
+Vse datoteke naložite v korensko mapo GitHub repozitorija in izberite Replace/Commit changes, če datoteke že obstajajo.
 
-POMEMBNO: konfiguracija vsebuje Supabase Project URL in javni Publishable key. Nikoli ne dodajajte service_role ali secret key v spletno aplikacijo.
+Konfiguracija Supabase je v config.js. V brskalniku uporabljajte samo Project URL in javni Publishable key. Nikoli ne dodajajte service_role ali secret key.
 
-Za objavo:
-1. V GitHub repozitoriju beta-group-evidenca odprite seznam datotek.
-2. Naložite oziroma zamenjajte vseh 6 datotek iz te mape v korenski mapi repozitorija.
-3. Počakajte, da GitHub Pages objavi spremembe, nato osvežite sajt.
+Dodajanje delavca:
+1. V Supabase odprite Authentication → Users → Add user in ustvarite uporabniški račun delavca.
+2. Kopirajte njegov User UID.
+3. V aplikaciji kot administrator izpolnite obrazec Dodaj delavca z imenom in UID-jem.
+4. Če Supabase zavrne shranjevanje, je treba preveriti RLS INSERT politiko za tabelo public.workers. Ne izklapljajte RLS.
 
-Para empezar a usar con trabajadores, compruebe antes que las tablas, la función SQL clock_event, los permisos RLS y el usuario administrador estén configurados en Supabase.
+Pomembno: obrazec ustvari profil v tabeli workers, ne pa prijavnega računa. Račun se ustvari v Supabase Auth.
 
-Këto skedarë nuk janë verifikuar kundrejt bazës suaj të drejtpërdrejtë. Para përdorimit real, testoni hyrjen/daljen, GPS, të drejtat e administratorit dhe rregullat RLS me një përdorues prove.
+Pred dejansko uporabo preizkusite prijavo delavca, prihod/odhod, GPS, administratorski pregled, RLS in izvoz. Ta paket ni bil preizkušen proti vaši živi zbirki podatkov.
