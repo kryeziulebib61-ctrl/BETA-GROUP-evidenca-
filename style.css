@@ -197,3 +197,6 @@ footer{font-size:10px;color:#8291a1;padding:17px 3px}
 button.danger{background:#fff0f0;color:#a52d35;border:1px solid #f1c9cc}
 button.danger:hover{background:#ffe1e3}
 @media print{.record-actions{display:none}}
+
+/* Phase 2: absences and night-hours summary */
+.absence-panel{padding:0;overflow:hidden;margin-top:18px}.absence-form{display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr 1.5fr auto;gap:10px;align-items:end;padding:0 20px 18px}.absence-form label{margin-top:0}.absence-form button{margin:0;white-space:nowrap}.absence-note-field{min-width:120px}.absence-panel .table-wrap{border-top:1px solid #eaf0f6}.absence-panel .message{padding:0 20px}.absence-panel .panel-heading p{margin:4px 0 0}@media(max-width:900px){.absence-form{grid-template-columns:repeat(2,minmax(0,1fr))}.absence-form button{grid-column:1/-1}}@media(max-width:760px){.absence-form{grid-template-columns:1fr;padding:0 13px 15px}.absence-form button{grid-column:auto}.absence-panel .message{padding:0 13px}}
