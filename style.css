@@ -71,3 +71,75 @@ tbody tr:hover{background:#f0f7f2}
 .login-panel{border-radius:12px;box-shadow:none;border-color:#e0e9e4}
 footer{color:#87958d}
 @media(max-width:760px){.app-shell{padding:0 12px 22px}.topbar{height:66px;margin-bottom:13px}.welcome{padding:18px 16px;min-height:100px;margin-bottom:13px}.panel{padding:15px}.clock-panel{padding:16px}.summary-card{padding:13px;min-height:102px}.panel-heading{padding:15px 14px 11px}.month-toolbar{padding:12px}}
+
+/* Poligram-inspired compact blue work-time interface (BETA GROUP branding) */
+:root{--ink:#20334b;--navy:#123e70;--blue:#0866bd;--blue-dark:#07549b;--blue-soft:#eaf3fc;--line:#dce5ef;--muted:#6d7d90;--paper:#fff;--canvas:#f3f6fa;--shadow:0 1px 4px rgba(18,48,83,.07)}
+body{background:#f2f5f9;color:var(--ink);font-family:Arial,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:14px}
+.app-shell{max-width:1080px;padding:0 18px 28px}
+.topbar{height:58px;margin-bottom:14px;border:0;border-bottom:2px solid #1268b8;background:#fff;padding:0 12px}
+.brand-icon{width:34px;height:34px;background:#0866bd;border-radius:5px;font-size:11px}
+.brand-name{color:#14558f;font-size:14px;letter-spacing:.02em}
+.brand-sub{font-size:9px;letter-spacing:.05em;color:#74869a}
+.topbar-right{font-size:11px;color:#60768d}
+.welcome{min-height:76px;padding:15px 18px;border:1px solid #d9e4ef;border-radius:6px;background:#fff;margin-bottom:14px;box-shadow:none}
+.welcome:after{display:none}
+.eyebrow,.section-kicker{font-size:10px;color:#176bb6;letter-spacing:.07em}
+.welcome h1{font-size:22px;color:#164d82;letter-spacing:-.02em;margin:3px 0}
+.welcome p{font-size:12px;color:#6f7f91;margin:0}
+.welcome-mark{font-size:30px;color:#1671be;margin-right:5px}
+.panel,.summary-card,.month-toolbar{border-radius:6px;border-color:#dce5ee;box-shadow:none}
+.panel{padding:16px;background:#fff;margin-bottom:14px}
+h2{font-size:19px;color:#164d82}
+h3{font-size:15px;color:#204c78}
+.userbar{padding:11px 14px}
+.avatar{background:#e8f2fc;color:#0866bd;border-radius:4px;width:34px;height:34px}
+.pill{background:#e9f3fc;color:#0a5da6;border-radius:4px}
+button{background:#0866bd;border-radius:5px;min-height:40px;font-size:12px;box-shadow:none}
+button:hover{background:#07549b}
+button.secondary{background:#fff;color:#075da8;border:1px solid #b9cfe3;border-radius:5px}
+button.secondary:hover{background:#edf5fc}
+.clock-panel{grid-template-columns:minmax(0,1fr) auto;gap:18px;padding:17px 18px;background:#fff;border:1px solid #d5e2ee;border-radius:6px}
+.clock-label{font-size:10px;color:#176bb6;letter-spacing:.08em;font-weight:800}
+.clock-copy h3{font-size:15px;color:#214f7e;margin:5px 0}
+.clock-copy p{font-size:12px;color:#708093;margin:0}
+.clock-actions{gap:8px;align-items:center}
+.clock-actions button{min-width:126px}
+.button-symbol{display:inline-grid;place-items:center;margin-right:5px}
+.month-toolbar{background:#fff;padding:11px 13px;margin-top:13px}
+.month-toolbar label{font-size:12px;color:#244d76}
+input,select{border-color:#cbd8e5;border-radius:5px;min-height:40px}
+input:focus,select:focus{border-color:#1675c5;box-shadow:0 0 0 2px #1675c51c}
+.summary-grid{gap:10px;margin-bottom:14px}
+.summary-card{min-height:92px;padding:13px 15px;border-radius:6px}
+.summary-primary{background:#eaf3fc;border-color:#d2e4f5}
+.summary-top span:first-child{font-size:9px;color:#647b91;letter-spacing:.06em}
+.summary-icon{font-size:17px;color:#176bb6}
+.summary-card strong{font-size:25px;color:#174e82}
+.summary-card small{font-size:10px;color:#75879a}
+.table-panel,.history-panel{border-radius:6px;background:#fff}
+.panel-heading{padding:14px 15px 10px}
+.panel-heading h3{font-size:14px}
+.mini-tag{background:#edf5fc;border-color:#d8e7f5;border-radius:4px;color:#24659e}
+.table-wrap{overflow-x:auto}
+table{font-size:12px;min-width:560px}
+th{background:#eaf2fa;color:#496a89;font-size:9px;letter-spacing:.04em;padding:10px 12px}
+td{padding:11px 12px;color:#344d65}
+tbody tr:nth-child(even){background:#f8fafc}
+tbody tr:hover{background:#edf5fc}
+.history-panel summary{padding:14px 15px}
+.history-panel summary strong{color:#1c4e7d;font-size:14px}
+.history-panel>p{padding:0 15px 12px;font-size:12px}
+.login-panel{max-width:420px;border-radius:6px;padding:24px;background:#fff}
+.login-panel h2{font-size:20px}
+.login-panel .section-kicker{color:#176bb6}
+.notice{border-radius:5px}
+.admin-panel{padding:16px}
+.admin-add{background:#f7fafe;border-radius:6px;padding:15px}
+.admin-icon{background:#e7f2fc;color:#0866bd;border-radius:5px}
+.worker-open{color:#075da8;background:#edf5fc;border:1px solid #d0e2f2;border-radius:4px}
+.worker-open:hover{background:#dcecfb}
+.daily-map-links a{color:#0866bd}
+footer{font-size:10px;color:#8291a1;padding:17px 3px}
+.footer-brand{color:#41678d}
+@media(max-width:760px){.app-shell{padding:0 9px 18px}.topbar{height:54px;padding:0 4px;margin-bottom:10px}.welcome{padding:13px 13px;min-height:70px;margin-bottom:10px}.welcome h1{font-size:19px}.welcome-mark{font-size:26px}.panel{padding:12px;margin-bottom:10px}.clock-panel{grid-template-columns:1fr;gap:12px;padding:14px}.clock-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}.clock-actions button{min-width:0;padding:10px 7px}.month-toolbar{padding:10px;margin-top:10px}.summary-grid{grid-template-columns:1fr 1fr;gap:7px}.summary-card{padding:11px;min-height:85px}.summary-primary{grid-column:1/-1}.summary-card strong{font-size:23px}.panel-heading{padding:12px 12px 9px}.history-panel summary{padding:12px}.history-panel>p{padding:0 12px 10px}.admin-panel{padding:12px}.admin-add{padding:12px}.add-worker-form{grid-template-columns:1fr;gap:3px}.add-worker-form button{margin-top:10px}.admin-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}th,td{padding:10px 9px}.footer-brand+span{display:none}footer{justify-content:space-between}}
+@media(max-width:390px){.topbar-right{display:none}.clock-actions{grid-template-columns:1fr 1fr}.welcome-mark{display:none}.summary-card small{font-size:9px}}
