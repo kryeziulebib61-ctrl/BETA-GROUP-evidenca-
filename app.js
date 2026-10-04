@@ -20,6 +20,7 @@ db=window.supabase.createClient(url,key,{
 });
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const date=v=>new Date(v).toLocaleString("sl-SI",{dateStyle:"short",timeStyle:"short"});
+const toLocalInput=v=>{const d=new Date(v);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}T${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`};
 const label=v=>v==="arrival"?"Prihod na delo":v==="departure"?"Odhod z dela":v;
 const gps=r=>r.latitude!=null&&r.longitude!=null?`${Number(r.latitude).toFixed(5)}, ${Number(r.longitude).toFixed(5)}`:"Ni podatka";
 async function enter(u){
@@ -161,7 +162,7 @@ async function loadAdmin(){
  const rows=all.filter(r=>new Date(r.event_time)>=monthStart&&new Date(r.event_time)<monthEnd).sort((a,b)=>new Date(b.event_time)-new Date(a.event_time));
  exportRows=rows.map(r=>({"Datum in ura":date(r.event_time),"Delavec":map[r.worker_id]?.full_name||r.worker_id,"Dogodek":label(r.event_type),"Latitude":r.latitude??"","Longitude":r.longitude??""}));
  const mapLink=r=>r.latitude!=null&&r.longitude!=null?`<a href="https://www.google.com/maps?q=${encodeURIComponent(`${r.latitude},${r.longitude}`)}" target="_blank" rel="noopener noreferrer">Odpri zemljevid ↗</a>`:"Ni podatka";
- $("allHours").innerHTML=rows.slice().map(r=>`<tr><td>${esc(date(r.event_time))}</td><td>${esc(map[r.worker_id]?.full_name||r.worker_id)}</td><td>${esc(label(r.event_type))}</td><td>${esc(gps(r))}</td><td>${mapLink(r)}</td></tr>`).join("")||'<tr><td colspan="5">Za izbrani mesec ni zapisov.</td></tr>';
+ $("allHours").innerHTML=rows.slice().map(r=>`<tr><td>${esc(date(r.event_time))}</td><td>${esc(map[r.worker_id]?.full_name||r.worker_id)}</td><td>${esc(label(r.event_type))}</td><td>${esc(gps(r))}</td><td>${mapLink(r)}</td><td><div class="record-actions"><button type="button" class="secondary record-edit" data-edit-id="${esc(r.id)}">Uredi</button><button type="button" class="danger record-delete" data-delete-id="${esc(r.id)}">Izbriši</button></div></td></tr>`).join("")||'<tr><td colspan="6">Za izbrani mesec ni zapisov.</td></tr>';
  msg("adminMessage",`Mesec ${selected}: ${workers.length} delavcev, ${rows.length} registracij.`)
 }
 $("addWorkerForm").addEventListener("submit",async e=>{e.preventDefault();const name=$("workerName").value.trim(),id=$("workerUid").value.trim();const btn=$("addWorkerButton");btn.disabled=true;msg("addWorkerMessage","Shranjevanje profila ...");try{const {error}=await db.from("workers").insert({id,full_name:name,is_admin:false,active:true});if(error)throw error;$("workerName").value="";$("workerUid").value="";msg("addWorkerMessage","Profil delavca je dodan. Delavec se lahko prijavi z računom, ki ste ga ustvarili v Supabase Auth.");await loadAdmin()}catch(e){msg("addWorkerMessage",e.message||"Profila ni bilo mogoče dodati. Preverite User UID in pravila dostopa.",true)}finally{btn.disabled=false}});
@@ -178,7 +179,48 @@ $("backToAdminHome").addEventListener("click",()=>{show("adminWorkerDetailPage",
 $("showAdminDailyTable").addEventListener("click",()=>{show("adminWorkerSummaryPage",false);show("adminWorkerTablePage",true);window.scrollTo({top:0,behavior:"auto"});});
 $("backToAdminWorkerSummary").addEventListener("click",()=>{show("adminWorkerTablePage",false);show("adminWorkerSummaryPage",true);window.scrollTo({top:0,behavior:"auto"});});
 async function renderSelectedAdminWorker(){const selected=adminMonth(),bounds=monthBounds(selected);const {data,error}=await db.from("work_hours").select("id,worker_id,event_type,event_time,latitude,longitude").gte("event_time",new Date(new Date(bounds.start).getTime()-36*60*60*1000).toISOString()).lt("event_time",bounds.end).order("event_time",{ascending:true}).limit(10000);if(error){msg("adminMessage","Podrobnosti delavca ni mogoče naložiti.",true);return}renderAdminWorkerDaily(data||[],$("adminWorkerPicker").value,new Date(bounds.start),new Date(bounds.end),new Date(),selected);$("adminDetailMonthText").textContent=`Mesec: ${selected}`;}
-$("refreshButton").addEventListener("click",loadAdmin);$("adminMonthPicker").addEventListener("change",loadAdmin);$("adminWorkerPicker").addEventListener("change",()=>loadAdmin());$("exportButton").addEventListener("click",()=>{if(!exportRows.length){msg("adminMessage","Ni zapisov za izvoz.");return}const cols=Object.keys(exportRows[0]),cell=v=>`"${String(v??"").replace(/"/g,'""')}"`,csv="\uFEFF"+[cols.map(cell).join(";"),...exportRows.map(r=>cols.map(c=>cell(r[c])).join(";"))].join("\r\n"),blob=new Blob([csv],{type:"text/csv;charset=utf-8;"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="beta-group-evidenca-delovnih-ur.csv";a.click();URL.revokeObjectURL(a.href)});
+$("refreshButton").addEventListener("click",loadAdmin);
+$("adminMonthPicker").addEventListener("change",loadAdmin);
+$("adminWorkerPicker").addEventListener("change",()=>loadAdmin());
+$("exportButton").addEventListener("click",()=>{
+ if(!exportRows.length){msg("adminMessage","Ni zapisov za izvoz.");return}
+ const cols=Object.keys(exportRows[0]),cell=v=>`"${String(v??"").replace(/"/g,'""')}"`,csv="\uFEFF"+[cols.map(cell).join(";"),...exportRows.map(r=>cols.map(c=>cell(r[c])).join(";"))].join("\r\n"),blob=new Blob([csv],{type:"text/csv;charset=utf-8;"}),a=document.createElement("a");
+ a.href=URL.createObjectURL(blob);a.download=`beta-group-evidenca-${adminMonth()}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+});
+$("printButton").addEventListener("click",()=>{
+ const table=document.querySelector("#adminPanel #adminHomePage .table-panel:last-of-type table");
+ const summary=document.querySelector("#adminMonthlyHours")?.closest("table");
+ const workerRows=summary?summary.outerHTML:"";
+ const logRows=table?table.outerHTML:"";
+ const w=window.open("","_blank");
+ if(!w){msg("adminMessage","Dovolite odpiranje novega okna, nato poskusite znova.",true);return}
+ w.document.write(`<!doctype html><html lang="sl"><head><meta charset="utf-8"><title>BETA GROUP – poročilo ${esc(adminMonth())}</title><style>body{font:12px Arial,sans-serif;color:#18263b;padding:24px}h1,h2{color:#203a63}table{border-collapse:collapse;width:100%;margin:12px 0 28px}th,td{border:1px solid #ccd5e2;padding:7px;text-align:left}th{background:#edf2fa}button{padding:10px 14px;margin-bottom:16px}@media print{button{display:none}body{padding:0}tr{break-inside:avoid}}</style></head><body><button onclick="window.print()">Natisni / Shrani kot PDF</button><h1>BETA GROUP – Evidenca delovnih ur</h1><p>Mesec: ${esc(adminMonth())}</p><h2>Mesečni povzetek ekipe</h2>${workerRows}<h2>Registracije</h2>${logRows}<script>document.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>window.print()))<\/script></body></html>`);
+ w.document.close();
+});
+$("allHours").addEventListener("click",async e=>{
+ if(!profile?.is_admin)return;
+ const edit=e.target.closest("[data-edit-id]"),del=e.target.closest("[data-delete-id]");
+ if(edit){
+  const id=edit.dataset.editId;
+  const {data:row,error:readError}=await db.from("work_hours").select("id,event_type,event_time").eq("id",id).maybeSingle();
+  if(readError||!row){msg("adminMessage","Zapisa ni mogoče odpreti za urejanje. Preverite pravice v Supabase.",true);return}
+  const type=prompt("Vrsta dogodka: vnesite 1 za Prihod ali 2 za Odhod",row.event_type==="arrival"?"1":"2");if(type===null)return;
+  const eventType=type.trim()==="1"?"arrival":type.trim()==="2"?"departure":"";
+  if(!eventType){msg("adminMessage","Vnesite 1 za Prihod ali 2 za Odhod.",true);return}
+  const time=prompt("Datum in ura (YYYY-MM-DDTHH:mm)",toLocalInput(row.event_time));if(time===null)return;
+  const parsed=new Date(time);if(!time.trim()||Number.isNaN(parsed.getTime())){msg("adminMessage","Datum ali ura nista pravilna.",true);return}
+  if(!confirm("Shrani spremembe tega zapisa?"))return;
+  const {error}=await db.from("work_hours").update({event_type:eventType,event_time:parsed.toISOString()}).eq("id",id);
+  if(error){msg("adminMessage","Urejanje ni uspelo. Preverite administratorsko UPDATE politiko v Supabase: "+error.message,true);return}
+  msg("adminMessage","Zapis je posodobljen.");await loadAdmin();await renderSelectedAdminWorker();
+ }
+ if(del){
+  const id=del.dataset.deleteId;if(!confirm("Ali res želite trajno izbrisati to registracijo? Tega ni mogoče razveljaviti."))return;
+  const {error}=await db.from("work_hours").delete().eq("id",id);
+  if(error){msg("adminMessage","Brisanje ni uspelo. Preverite administratorsko DELETE politiko v Supabase: "+error.message,true);return}
+  msg("adminMessage","Registracija je izbrisana.");await loadAdmin();await renderSelectedAdminWorker();
+ }
+});
 let enteredUserId=null;
 async function restoreSession(){
   const {data,error}=await db.auth.getSession();
