@@ -1,124 +1,15 @@
-<!doctype html>
-<html lang="sl">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#20a56b">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="BETA GROUP">
-  <title>BETA GROUP – Evidenca delovnih ur</title>
-  <link rel="stylesheet" href="style.css">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-</head>
-<body>
-  <main id="app">
-    <section id="loginView" class="screen">
-      <div class="login-card">
-        <div class="brand">BETA GROUP</div>
-        <h1>Evidenca delovnih ur</h1>
-        <p>Digitalna evidenca delovnega časa · prihod, odhod in mesečni pregled</p>
-        <form id="loginForm">
-          <label>E-pošta<input id="loginEmail" type="email" autocomplete="username" required></label>
-          <label>Geslo<input id="loginPassword" type="password" autocomplete="current-password" required></label>
-          <button class="primary" type="submit">Prijava</button>
-        </form>
-        <p id="loginMsg" class="msg"></p>
-      </div>
-    </section>
-
-    <section id="mainView" class="hidden">
-      <header class="topbar">
-        <div>
-          <div class="brand">BETA GROUP</div>
-          <small>Evidenca delovnih ur</small>
-        </div>
-        <button id="logoutBtn" class="ghost">Odjava</button>
-      </header>
-
-      <div class="container">
-        <section class="hero">
-          <div>
-            <span class="eyebrow">DIGITALNA EVIDENCA</span>
-            <h1 id="welcomeTitle">Moja evidenca delovnega časa</h1>
-            <p>Prihod in odhod z enim dotikom. Mesečni pregled in pretekle mesece izbereš spodaj.</p>
-          </div>
-        </section>
-
-        <div id="workerPanel" class="panel hidden">
-          <div class="panel-head">
-            <div>
-              <h2>Danes</h2>
-              <p id="todayText"></p>
-            </div>
-            <span id="statusBadge" class="badge">—</span>
-          </div>
-          <div class="clock-actions">
-            <button id="arrivalBtn" class="primary big">PRIHOD NA DELO</button>
-            <button id="departureBtn" class="secondary big">ODHOD Z DELA</button>
-          </div>
-          <p id="locationStatus" class="msg"></p>
-        </div>
-
-        <section class="panel">
-          <div class="panel-head">
-            <div>
-              <h2>Mesečni pregled</h2>
-              <p>Pregled opravljenih ur in lokacij.</p>
-            </div>
-            <input id="monthPicker" class="month" type="month">
-          </div>
-          <div id="summaryCards" class="summary-grid"></div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Datum</th><th>Prihod</th><th>Odhod</th><th>Ure</th><th>Lokacija</th></tr></thead>
-              <tbody id="entriesBody"></tbody>
-            </table>
-          </div>
-        </section>
-
-        <section id="adminPanel" class="hidden">
-          <div class="panel">
-            <div class="panel-head">
-              <div><h2>Administratorski pregled</h2><p>Upravljanje delavcev, ur in lokacij.</p></div>
-            </div>
-
-            <div class="admin-grid">
-              <div class="admin-card">
-                <h3>Dodaj delavca</h3>
-                <p class="hint">Ustvari uporabnika neposredno prek varne Supabase Edge funkcije.</p>
-                <form id="workerForm">
-                  <label>Ime in priimek<input id="workerName" required></label>
-                  <label>E-pošta<input id="workerEmail" type="email" required></label>
-                  <label>Začasno geslo<input id="workerPassword" type="text" minlength="8" required></label>
-                  <button class="primary" type="submit">Dodaj delavca</button>
-                </form>
-                <p id="workerMsg" class="msg"></p>
-              </div>
-
-              <div class="admin-card">
-                <h3>Izbrani mesec</h3>
-                <label>Mesec<input id="adminMonth" class="month" type="month"></label>
-                <div id="adminTotal" class="admin-total">0 ur</div>
-              </div>
-            </div>
-
-            <h3 class="section-title">Delavci</h3>
-            <div class="table-wrap">
-              <table>
-                <thead><tr><th>Delavec</th><th>E-pošta</th><th>Ure v mesecu</th><th>Zadnji prihod</th></tr></thead>
-                <tbody id="workersBody"></tbody>
-              </table>
-            </div>
-
-            <h3 class="section-title">Lokacije prihodov in odhodov</h3>
-            <div id="locationList" class="location-list"></div>
-          </div>
-        </section>
-      </div>
-    </section>
-  </main>
-  <div id="toast" class="toast"></div>
-  <script src="config.js"></script>
-  <script src="app.js"></script>
-</body>
-</html>
+<!doctype html><html lang="sl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#111827"><link rel="manifest" href="manifest.json"><title>BETA GROUP – Evidenca delovnih ur</title><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script><script src="config.js"></script><style>
+*{box-sizing:border-box}body{margin:0;background:#f5f7fb;color:#111827;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial}.hide{display:none!important}.top{height:68px;background:#fff;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;padding:0 18px;position:sticky;top:0;z-index:20}.brand{font-weight:800}.brand small{display:block;color:#6b7280;font-size:11px}.layout{display:flex;min-height:calc(100vh - 68px)}aside{width:235px;background:#111827;padding:12px}.nav{display:block;width:100%;border:0;background:none;color:#d1d5db;text-align:left;padding:12px;border-radius:10px;margin:3px 0;font-weight:700;cursor:pointer}.nav:hover{background:#273244;color:#fff}.content{width:100%;max-width:1500px;margin:auto;padding:22px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:17px;box-shadow:0 8px 28px #1118270b}.stat span{color:#6b7280;font-size:13px}.stat b{display:block;font-size:28px;margin-top:7px}.btn{border:0;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}.primary{background:#111827;color:#fff}.green{background:#16a34a;color:#fff}.red{background:#dc2626;color:#fff}.light{background:#eef2f7;color:#111827}.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.toolbar input,.toolbar select,input,select{padding:10px;border:1px solid #dfe3e8;border-radius:10px;background:#fff}.tablewrap{overflow:auto}.table{width:100%;border-collapse:collapse}.table th,.table td{padding:11px;border-bottom:1px solid #e5e7eb;text-align:left;white-space:nowrap}.table th{font-size:12px;color:#6b7280}.status{padding:5px 9px;border-radius:99px;font-size:12px;font-weight:800}.on{background:#dcfce7;color:#166534}.off{background:#f3f4f6;color:#4b5563}.punches{display:grid;grid-template-columns:1fr 1fr;gap:15px;margin:16px 0}.punch{height:150px;border:0;border-radius:18px;color:white;font-size:22px;font-weight:900;cursor:pointer}.login{min-height:100vh;display:grid;place-items:center;padding:20px}.loginbox{width:min(430px,100%);background:#fff;border-radius:20px;padding:28px;box-shadow:0 12px 40px #11182718}.field label{display:block;color:#6b7280;font-size:12px;font-weight:700;margin-bottom:6px}.field input{width:100%}.modal{position:fixed;inset:0;background:#0008;display:grid;place-items:center;padding:20px;z-index:50}.modalbox{background:#fff;border-radius:18px;padding:20px;width:min(620px,100%)}#map{height:430px;border-radius:14px}.empty{text-align:center;padding:30px;color:#6b7280}@media(max-width:900px){aside{width:70px}.nav{font-size:0;text-align:center}.nav:first-letter{font-size:20px}.grid{grid-template-columns:1fr 1fr}}@media(max-width:600px){.layout{display:block}.content{padding:14px}aside{position:fixed;bottom:0;left:0;right:0;width:100%;height:62px;display:flex;z-index:30}.punches{grid-template-columns:1fr}.punch{height:120px;font-size:18px}}
+</style></head><body>
+<div id="login" class="login"><div class="loginbox"><h1>BETA GROUP</h1><p>Evidenca delovnih ur</p><p id="err" class="hide"></p><div class="field"><label>E-pošta</label><input id="email" type="email"></div><br><div class="field"><label>Geslo</label><input id="pass" type="password"></div><br><button class="btn primary" style="width:100%" onclick="doLogin()">Prijava</button></div></div>
+<div id="app" class="hide"><header class="top"><div class="brand">BETA GROUP<small>Evidenca delovnih ur</small></div><div><span id="who"></span> <button class="btn light" onclick="logout()">Odjava</button></div></header><div class="layout"><aside id="nav"></aside><main class="content" id="main"></main></div></div>
+<div id="modal" class="modal hide"><div class="modalbox" id="modalbox"></div></div><script>
+const sb=supabase.createClient(BETA_CONFIG.SUPABASE_URL,BETA_CONFIG.SUPABASE_ANON_KEY);let session,profile,employee,month=new Date().toISOString().slice(0,7),employees=[];const $=x=>document.getElementById(x),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function boot(){let x=await sb.auth.getSession();session=x.data.session;if(!session)return;await load();show()}async function load(){let x=await sb.from('profiles').select('*').eq('id',session.user.id).single();if(x.error)throw x.error;profile=x.data;if(profile.employee_id){let e=await sb.from('employees').select('*').eq('id',profile.employee_id).single();employee=e.data}}function show(){$('login').classList.add('hide');$('app').classList.remove('hide');$('who').textContent=profile.full_name||employee?.name||session.user.email;nav();profile.role==='admin'?dashboard():workerHome()}function nav(){let a=profile.role==='admin';$('nav').innerHTML=a?'<button class="nav" onclick="dashboard()">📊 Nadzorna plošča</button><button class="nav" onclick="workersPage()">👷 Delavci</button><button class="nav" onclick="timePage()">🕒 Delovni čas</button><button class="nav" onclick="locationsPage()">📍 Lokacije</button><button class="nav" onclick="reportsPage()">📄 Poročila</button>':'<button class="nav" onclick="workerHome()">🏠 Domov</button><button class="nav" onclick="myTime()">🕒 Moj čas</button><button class="nav" onclick="myLocations()">📍 Moje lokacije</button>'}async function doLogin(){let x=await sb.auth.signInWithPassword({email:$('email').value,password:$('pass').value});if(x.error){$('err').textContent=x.error.message;$('err').classList.remove('hide');return}session=x.data.session;await load();show()}async function logout(){await sb.auth.signOut();location.reload()}
+async function getEmployees(){let x=await sb.from('employees').select('*').order('name');if(x.error)alert(x.error.message);return x.data||[]}async function getRecords(id=null){let n=new Date(month+'-01T00:00:00');let end=new Date(n);end.setMonth(end.getMonth()+1);let q=sb.from('work_records').select('*').gte('work_date',month+'-01').lt('work_date',end.toISOString().slice(0,10)).order('work_date',{ascending:false});if(id)q=q.eq('employee_id',id);let x=await q;if(x.error)alert(x.error.message);return x.data||[]}function page(t,h){$('main').innerHTML='<h1>'+t+'</h1>'+h}function table(r){return '<div class="tablewrap"><table class="table"><tr><th>Datum</th><th>Prihod</th><th>Odhod</th><th>Ure</th><th>Projekt</th></tr>'+ (r.map(x=>'<tr><td>'+x.work_date+'</td><td>'+fmt(x.clock_in)+'</td><td>'+fmt(x.clock_out)+'</td><td>'+Number(x.total_hours||0).toFixed(2)+'</td><td>'+esc(x.project||'—')+'</td></tr>').join('')||'<tr><td colspan="5" class="empty">Ni podatkov.</td></tr>')+'</table></div>'}function fmt(x){return x?new Date(x).toLocaleString('sl-SI',{dateStyle:'short',timeStyle:'short'}):'—'}
+async function dashboard(){employees=await getEmployees();let r=await getRecords(),h=r.reduce((a,x)=>a+Number(x.total_hours||0),0);page('Nadzorna plošča','<div class="grid"><div class="card stat"><span>Delavci</span><b>'+employees.length+'</b></div><div class="card stat"><span>Na delu</span><b>'+r.filter(x=>x.clock_in&&!x.clock_out).length+'</b></div><div class="card stat"><span>Ure v mesecu</span><b>'+h.toFixed(2)+'</b></div><div class="card stat"><span>Zaključeni vnosi</span><b>'+r.filter(x=>x.clock_in&&x.clock_out).length+'</b></div></div><br><div class="card"><input type="month" value="'+month+'" onchange="month=this.value;dashboard()"></div>')}
+async function workersPage(){employees=await getEmployees();page('Delavci','<div class="card"><button class="btn primary" onclick="addWorker()">+ Dodaj delavca</button><br><br><div class="tablewrap"><table class="table"><tr><th>Ime</th><th>Delovno mesto</th><th>Telefon</th><th>Status</th><th></th></tr>'+employees.map(e=>'<tr><td><b>'+esc(e.name)+'</b><br><small>'+esc(e.email||'')+'</small></td><td>'+esc(e.position||'Delavec')+'</td><td>'+esc(e.phone||'—')+'</td><td><span class="status '+(e.active?'on':'off')+'">'+(e.active?'Aktiven':'Neaktiven')+'</span></td><td><button class="btn light" onclick="details(\''+e.id+'\')">Odpri</button></td></tr>').join('')+'</table></div></div>')}function addWorker(){$('modal').classList.remove('hide');$('modalbox').innerHTML='<h2>Dodaj delavca</h2><div class="field"><label>Ime in priimek</label><input id="wn"></div><br><div class="field"><label>Delovno mesto</label><input id="wp" value="Delavec"></div><br><div class="field"><label>Telefon</label><input id="wt"></div><br><div class="field"><label>E-pošta</label><input id="we"></div><br><button class="btn primary" onclick="saveWorker()">Shrani</button> <button class="btn light" onclick="$(\'modal\').classList.add(\'hide\')">Prekliči</button>'}async function saveWorker(){let x=await sb.from('employees').insert({name:$('wn').value,position:$('wp').value,phone:$('wt').value,email:$('we').value});if(x.error)alert(x.error.message);else{$('modal').classList.add('hide');workersPage()}}async function details(id){let e=employees.find(x=>x.id===id),r=await getRecords(id);page(esc(e.name),'<div class="card"><b>'+esc(e.position||'Delavec')+'</b><p>Skupaj: '+r.reduce((a,x)=>a+Number(x.total_hours||0),0).toFixed(2)+' ur</p>'+table(r)+'</div>')}
+async function timePage(){employees=await getEmployees();let r=await getRecords();page('Delovni čas','<div class="card"><div class="toolbar"><input type="month" value="'+month+'" onchange="month=this.value;timePage()"><button class="btn light" onclick="csv()">CSV</button><button class="btn light" onclick="excel()">Excel</button><button class="btn light" onclick="pdf()">PDF</button></div><br>'+table(r)+'</div>')}async function locationsPage(){let r=await getRecords();page('Lokacije','<div class="card">'+(r.map(x=>'<p>'+x.work_date+' — '+(x.clock_in_lat?'<a target="_blank" href="https://www.google.com/maps?q='+x.clock_in_lat+','+x.clock_in_lng+'">Prihod</a>':'')+' '+(x.clock_out_lat?'<a target="_blank" href="https://www.google.com/maps?q='+x.clock_out_lat+','+x.clock_out_lng+'">Odhod</a>':'')+'</p>').join('')||'<div class="empty">Ni lokacij.</div>')+'</div>')}async function reportsPage(){employees=await getEmployees();page('Poročila','<div class="card"><input id="rm" type="month" value="'+month+'"><select id="rw"><option value="">Vsi delavci</option>'+employees.map(e=>'<option value="'+e.id+'">'+esc(e.name)+'</option>').join('')+'</select> <button class="btn primary" onclick="report()">Prikaži poročilo</button></div><br><div id="report"></div>')}async function report(){month=$('rm').value;let r=await getRecords($('rw').value||null);$('report').innerHTML='<div id="pdfarea" class="card"><h2>BETA GROUP – Mesečni obračun</h2><p>Mesec: '+month+'</p>'+table(r)+'<h3>Skupaj: '+r.reduce((a,x)=>a+Number(x.total_hours||0),0).toFixed(2)+' ur</h3></div><br><button class="btn primary" onclick="pdf()">Shrani PDF</button>'}async function csv(){let r=await getRecords(),s='Datum;Prihod;Odhod;Ure\n'+r.map(x=>x.work_date+';'+(x.clock_in||'')+';'+(x.clock_out||'')+';'+(x.total_hours||0)).join('\n');download(new Blob(['\ufeff'+s],{type:'text/csv'}),'delovni-cas-'+month+'.csv')}async function excel(){let r=await getRecords(),w=XLSX.utils.book_new();XLSX.utils.book_append_sheet(w,XLSX.utils.json_to_sheet(r.map(x=>({Datum:x.work_date,Prihod:x.clock_in||'',Odhod:x.clock_out||'',Ure:x.total_hours||0}))),'Delovni čas');XLSX.writeFile(w,'delovni-cas-'+month+'.xlsx')}function pdf(){html2pdf().from($('pdfarea')||$('main')).save('BETA-GROUP-'+month+'.pdf')}function download(b,n){let a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;a.click()}
+async function punch(type){if(!employee)return alert('Profil delavca ni povezan.');let p=await geo(),d=new Date(),day=d.toISOString().slice(0,10),q=await sb.from('work_records').select('*').eq('employee_id',employee.id).eq('work_date',day).order('created_at',{ascending:false}).limit(1),r=q.data?.[0];if(type==='in'){if(r&&!r.clock_out)return alert('Prihod je že evidentiran.');let x=await sb.from('work_records').insert({employee_id:employee.id,work_date:day,clock_in:d.toISOString(),clock_in_lat:p?.lat,clock_in_lng:p?.lng});if(x.error)alert(x.error.message)}else{if(!r||!r.clock_in)return alert('Najprej evidentirajte prihod.');if(r.clock_out)return alert('Odhod je že evidentiran.');let x=await sb.from('work_records').update({clock_out:d.toISOString(),clock_out_lat:p?.lat,clock_out_lng:p?.lng}).eq('id',r.id);if(x.error)alert(x.error.message)}workerHome()}function geo(){return new Promise(res=>navigator.geolocation?navigator.geolocation.getCurrentPosition(p=>res({lat:p.coords.latitude,lng:p.coords.longitude}),()=>res(null),{enableHighAccuracy:true,timeout:10000}):res(null))}async function workerHome(){let r=await getRecords(employee?.id),today=r.find(x=>x.work_date===new Date().toISOString().slice(0,10));page('Domov','<div class="card"><h2>'+esc(employee?.name||profile.full_name||'Delavec')+'</h2><span class="status '+(today&&!today.clock_out?'on':'off')+'">'+(today&&!today.clock_out?'Na delu':'Ni na delu')+'</span></div><div class="punches"><button class="punch" style="background:#16a34a" onclick="punch(\'in\')">PRIHOD NA DELO</button><button class="punch" style="background:#dc2626" onclick="punch(\'out\')">ODHOD IZ DELA</button></div><div class="card">'+table(r)+'</div>')}async function myTime(){let r=await getRecords(employee.id);page('Moj delovni čas','<div class="card"><input type="month" value="'+month+'" onchange="month=this.value;myTime()">'+table(r)+'</div>')}async function myLocations(){let r=await getRecords(employee.id);page('Moje lokacije','<div class="card">'+r.map(x=>x.work_date+' '+(x.clock_in_lat?'<a target="_blank" href="https://www.google.com/maps?q='+x.clock_in_lat+','+x.clock_in_lng+'">Prihod</a> ':'')+(x.clock_out_lat?'<a target="_blank" href="https://www.google.com/maps?q='+x.clock_out_lat+','+x.clock_out_lng+'">Odhod</a>':'')).join('<br>')+'</div>')}
+boot().catch(e=>{console.error(e);$('err').textContent=e.message;$('err').classList.remove('hide')});
+</script></body></html>
