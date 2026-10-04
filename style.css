@@ -13,3 +13,61 @@
 @media(max-width:760px){.daily-map-links{white-space:normal;min-width:110px}.worker-open{max-width:160px}}
 
 .worker-open{cursor:pointer;display:inline-flex;align-items:center;gap:6px}.worker-open:focus-visible{outline:3px solid #8eb4ff;outline-offset:2px}
+
+
+/* BETA GROUP — refreshed main dashboard, inspired by modern time-tracking apps */
+:root{--ink:#1d2b28;--navy:#153f35;--blue:#167454;--blue-dark:#105e43;--blue-soft:#e8f5ef;--line:#e0e9e4;--muted:#71817a;--paper:#fff;--canvas:#f4f7f5;--shadow:0 2px 10px rgba(24,57,44,.045)}
+body{background:var(--canvas);color:var(--ink);font-size:14px}
+.app-shell{max-width:1180px;padding:0 24px 36px}
+.topbar{height:72px;margin-bottom:22px;border-bottom:1px solid #dfe8e3}
+.brand-icon{background:#176b4e;border-radius:11px;width:40px;height:40px;letter-spacing:-.06em}
+.brand-name{color:#174c3b;font-size:15px;letter-spacing:.045em}
+.brand-sub{color:#7d8d85;font-size:9px;letter-spacing:.11em}
+.topbar-right{font-weight:600;color:#60746a}
+.secure-dot{background:#23a26d}
+.welcome{min-height:105px;padding:22px 25px;border-radius:12px;border:1px solid #e1e9e4;box-shadow:none;margin-bottom:18px;background:linear-gradient(105deg,#fff 0%,#f9fcfa 100%)}
+.welcome:after{border-color:#d8ebe1;box-shadow:0 0 0 22px #f4faf6,0 0 0 48px #f9fcfa}
+.eyebrow,.section-kicker{color:#26805f;letter-spacing:.1em}
+.welcome h1{color:#173f32;font-size:clamp(23px,3vw,29px);letter-spacing:-.035em}
+.welcome p{color:#71817a;font-size:13px}
+.welcome-mark{color:#25815d}
+.panel,.summary-card,.month-toolbar{border-color:#e0e9e4;border-radius:11px;box-shadow:none}
+.panel{padding:20px}
+h2{color:#173f32;font-size:20px}
+h3{color:#1d4939}
+.userbar{padding:13px 17px;background:#fff}
+.avatar{background:#e7f4ec;color:#176b4e;border-radius:50%;width:40px;height:40px}
+.pill{background:#e8f5ed;color:#21734e;border-radius:20px}
+button{background:#17724f;border-radius:7px;min-height:42px}
+button:hover{background:#105e43}
+button.secondary{background:#fff;color:#28634d;border:1px solid #d8e5dd}
+button.secondary:hover{background:#f1f7f3}
+.clock-panel{border:1px solid #dce9e0;background:#fff;border-radius:12px;padding:22px}
+.clock-label{color:#27815f}
+.clock-copy h3{font-size:17px;color:#1b4737}
+.clock-actions button{min-width:150px}
+.month-toolbar{background:#fff;padding:13px 16px}
+.month-toolbar label{color:#254b3d}
+input,select{border-color:#d5e1d9;border-radius:7px}
+input:focus,select:focus{border-color:#24845f;box-shadow:0 0 0 3px #24845f18}
+.summary-grid{gap:12px}
+.summary-card{padding:16px 18px;min-height:112px}
+.summary-primary{background:#edf7f1;border-color:#d5eadd}
+.summary-card strong{color:#174a37}
+.summary-top span:first-child{color:#71867b}
+.summary-icon{color:#25805b}
+.table-panel,.history-panel{overflow:hidden}
+.panel-heading{padding:18px 19px 13px}
+.mini-tag{background:#f0f7f2;border-color:#dce9e0;color:#2c7253}
+th{background:#f4f8f5;color:#708278}
+td{color:#3c5147}
+tbody tr:nth-child(even){background:#fafcfb}
+tbody tr:hover{background:#f0f7f2}
+.history-panel summary strong{color:#1c4a38}
+.worker-open{color:#176b4e;background:#edf7f1;border:1px solid #d7e9de;border-radius:7px}
+.worker-open:hover{background:#e2f2e8}
+.daily-map-links a{color:#17724f}
+.admin-add-head .admin-icon{background:#e7f4ec;color:#17724f}
+.login-panel{border-radius:12px;box-shadow:none;border-color:#e0e9e4}
+footer{color:#87958d}
+@media(max-width:760px){.app-shell{padding:0 12px 22px}.topbar{height:66px;margin-bottom:13px}.welcome{padding:18px 16px;min-height:100px;margin-bottom:13px}.panel{padding:15px}.clock-panel{padding:16px}.summary-card{padding:13px;min-height:102px}.panel-heading{padding:15px 14px 11px}.month-toolbar{padding:12px}}
