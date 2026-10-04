@@ -91,16 +91,43 @@ async function loadMine(){
 function adminMonth(){const p=$("adminMonthPicker");if(!p.value){const d=new Date();p.value=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`}return p.value}
 function renderAdminWorkerDaily(all,workerId,monthStart,monthEnd,now,selected){
  const body=$("adminWorkerDailyHours");$("adminWorkerMonthLabel").textContent=selected;
- if(!workerId){body.innerHTML='<tr><td colspan="5">Izberite delavca za pregled.</td></tr>';return}
+ if(!workerId){body.innerHTML='<tr><td colspan="6">Izberite delavca za pregled.</td></tr>';return}
  const events=all.filter(r=>r.worker_id===workerId).slice().sort((a,b)=>new Date(a.event_time)-new Date(b.event_time));
- const daily={}, arrivals={}, departures={};
+ const daily={}, arrivals={}, departures={}, arrivalRows={}, departureRows={};
  let open=null;const intervals=[];
- for(const r of events){const t=new Date(r.event_time);if(r.event_type==="arrival"){if(open===null)open=r}else if(r.event_type==="departure"&&open!==null){const a=new Date(open.event_time);if(t>a)intervals.push({start:a,end:t,open:false});open=null}}
+ for(const r of events){
+   const t=new Date(r.event_time);
+   if(r.event_type==="arrival"){if(open===null)open=r}
+   else if(r.event_type==="departure"&&open!==null){const a=new Date(open.event_time);if(t>a)intervals.push({start:a,end:t,open:false});open=null}
+ }
  if(open!==null){const a=new Date(open.event_time);if(now>a)intervals.push({start:a,end:now,open:true})}
- for(const r of events){const d=new Date(r.event_time);if(d<monthStart||d>=monthEnd)continue;const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;if(!daily[k])daily[k]={ms:0,open:false};if(r.event_type==="arrival"&&!arrivals[k])arrivals[k]=r.event_time;if(r.event_type==="departure")departures[k]=r.event_time}
- for(const it of intervals){let cursor=new Date(Math.max(it.start.getTime(),monthStart.getTime()));const stop=new Date(Math.min(it.end.getTime(),monthEnd.getTime()));while(cursor<stop){const next=new Date(cursor.getFullYear(),cursor.getMonth(),cursor.getDate()+1);const end=new Date(Math.min(stop.getTime(),next.getTime()));const k=`${cursor.getFullYear()}-${String(cursor.getMonth()+1).padStart(2,"0")}-${String(cursor.getDate()).padStart(2,"0")}`;if(!daily[k])daily[k]={ms:0,open:false};daily[k].ms+=end-cursor;if(it.open)daily[k].open=true;cursor=end}}
+ for(const r of events){
+   const d=new Date(r.event_time);if(d<monthStart||d>=monthEnd)continue;
+   const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+   if(!daily[k])daily[k]={ms:0,open:false};
+   if(r.event_type==="arrival"&&!arrivals[k]){arrivals[k]=r.event_time;arrivalRows[k]=r}
+   if(r.event_type==="departure"){departures[k]=r.event_time;departureRows[k]=r}
+ }
+ for(const it of intervals){
+   let cursor=new Date(Math.max(it.start.getTime(),monthStart.getTime()));
+   const stop=new Date(Math.min(it.end.getTime(),monthEnd.getTime()));
+   while(cursor<stop){
+     const next=new Date(cursor.getFullYear(),cursor.getMonth(),cursor.getDate()+1);
+     const end=new Date(Math.min(stop.getTime(),next.getTime()));
+     const k=`${cursor.getFullYear()}-${String(cursor.getMonth()+1).padStart(2,"0")}-${String(cursor.getDate()).padStart(2,"0")}`;
+     if(!daily[k])daily[k]={ms:0,open:false};
+     daily[k].ms+=end-cursor;if(it.open)daily[k].open=true;cursor=end;
+   }
+ }
+ const mapLink=(r,caption)=>r&&r.latitude!=null&&r.longitude!=null
+   ?`<a href="https://www.google.com/maps?q=${encodeURIComponent(`${r.latitude},${r.longitude}`)}" target="_blank" rel="noopener noreferrer">${caption}</a>`
+   :"—";
  const keys=Object.keys(daily).sort((a,b)=>b.localeCompare(a));
- body.innerHTML=keys.map(k=>{const d=daily[k],a=arrivals[k],b=departures[k];return `<tr><td>${esc(new Date(`${k}T12:00:00`).toLocaleDateString("sl-SI"))}</td><td>${a?esc(new Date(a).toLocaleTimeString("sl-SI",{hour:"2-digit",minute:"2-digit"})):"—"}</td><td>${b?esc(new Date(b).toLocaleTimeString("sl-SI",{hour:"2-digit",minute:"2-digit"})):"—"}</td><td><strong>${durationLabel(d.ms)}</strong></td><td>${d.open?"Delo še poteka · ure se štejejo":d.ms>0?"Izračunano":"Nepopolna registracija"}</td></tr>`}).join("")||'<tr><td colspan="5">Za izbranega delavca v tem mesecu še ni zapisov.</td></tr>';
+ body.innerHTML=keys.map(k=>{
+   const d=daily[k],a=arrivals[k],b=departures[k],ar=arrivalRows[k],dr=departureRows[k];
+   const maps=`<div class="daily-map-links">${mapLink(ar,"Prihod ↗")}<span> · </span>${mapLink(dr,"Odhod ↗")}</div>`;
+   return `<tr><td>${esc(new Date(`${k}T12:00:00`).toLocaleDateString("sl-SI"))}</td><td>${a?esc(new Date(a).toLocaleTimeString("sl-SI",{hour:"2-digit",minute:"2-digit"})):"—"}</td><td>${b?esc(new Date(b).toLocaleTimeString("sl-SI",{hour:"2-digit",minute:"2-digit"})):"—"}</td><td><strong>${durationLabel(d.ms)}</strong></td><td>${d.open?"Delo še poteka · ure se štejejo":d.ms>0?"Izračunano":"Nepopolna registracija"}</td><td>${maps}</td></tr>`;
+ }).join("")||'<tr><td colspan="6">Za izbranega delavca v tem mesecu še ni zapisov.</td></tr>';
 }
 async function loadAdmin(){
  const selected=adminMonth(),bounds=monthBounds(selected),from=new Date(new Date(bounds.start).getTime()-36*60*60*1000).toISOString();
@@ -117,7 +144,7 @@ async function loadAdmin(){
   let ongoing=false;if(open!==null){const s=new Date(Math.max(open.getTime(),monthStart.getTime())),e=new Date(Math.min(now.getTime(),monthEnd.getTime()));if(e>s){total+=e-s;ongoing=true;let cur=new Date(s);while(cur<e){days.add(`${cur.getFullYear()}-${cur.getMonth()}-${cur.getDate()}`);cur=new Date(cur.getFullYear(),cur.getMonth(),cur.getDate()+1)}}}
   return {name:w.full_name,active:w.active,total,days:days.size,ongoing};});
  const fmt=ms=>{const n=Math.max(0,Math.floor(ms/60000));return `${Math.floor(n/60)}:${String(n%60).padStart(2,"0")}`};
- $("adminMonthlyHours").innerHTML=summary.map(s=>`<tr><td>${esc(s.name)}</td><td>${s.days}</td><td><strong>${fmt(s.total)}</strong></td><td>${s.ongoing?"Delo še poteka":s.active?"Aktiven":"Neaktiven"}</td></tr>`).join("")||'<tr><td colspan="4">Ni delavcev.</td></tr>';
+ $("adminMonthlyHours").innerHTML=summary.map((s,i)=>{const w=workers[i];return `<tr><td><button type="button" class="worker-open secondary" data-worker-id="${esc(w.id)}">${esc(s.name)} ↗</button></td><td>${s.days}</td><td><strong>${fmt(s.total)}</strong></td><td>${s.ongoing?"Delo še poteka":s.active?"Aktiven":"Neaktiven"}</td></tr>`}).join("")||'<tr><td colspan="4">Ni delavcev.</td></tr>';
  const workerPicker=$("adminWorkerPicker");
  const previousWorker=workerPicker.value;
  workerPicker.innerHTML='<option value="">Izberite delavca</option>'+workers.map(w=>`<option value="${esc(w.id)}">${esc(w.full_name)}${w.is_admin?" (Administrator)":""}</option>`).join("");
@@ -131,6 +158,8 @@ async function loadAdmin(){
  msg("adminMessage",`Mesec ${selected}: ${workers.length} delavcev, ${rows.length} registracij.`)
 }
 $("addWorkerForm").addEventListener("submit",async e=>{e.preventDefault();const name=$("workerName").value.trim(),id=$("workerUid").value.trim();const btn=$("addWorkerButton");btn.disabled=true;msg("addWorkerMessage","Shranjevanje profila ...");try{const {error}=await db.from("workers").insert({id,full_name:name,is_admin:false,active:true});if(error)throw error;$("workerName").value="";$("workerUid").value="";msg("addWorkerMessage","Profil delavca je dodan. Delavec se lahko prijavi z računom, ki ste ga ustvarili v Supabase Auth.");await loadAdmin()}catch(e){msg("addWorkerMessage",e.message||"Profila ni bilo mogoče dodati. Preverite User UID in pravila dostopa.",true)}finally{btn.disabled=false}});
+$("adminMonthlyHours").addEventListener("click",e=>{const b=e.target.closest("[data-worker-id]");if(!b)return;$("adminWorkerPicker").value=b.dataset.workerId;renderSelectedAdminWorker();$("adminWorkerDailyHours").closest(".table-panel").scrollIntoView({behavior:"smooth",block:"start"})});
+function renderSelectedAdminWorker(){const selected=adminMonth(),bounds=monthBounds(selected);db.from("work_hours").select("id,worker_id,event_type,event_time,latitude,longitude").gte("event_time",new Date(new Date(bounds.start).getTime()-36*60*60*1000).toISOString()).lt("event_time",bounds.end).order("event_time",{ascending:true}).limit(10000).then(({data,error})=>{if(error){msg("adminMessage","Podrobnosti delavca ni mogoče naložiti.",true);return}renderAdminWorkerDaily(data||[],$("adminWorkerPicker").value,new Date(bounds.start),new Date(bounds.end),new Date(),selected)})}
 $("refreshButton").addEventListener("click",loadAdmin);$("adminMonthPicker").addEventListener("change",loadAdmin);$("adminWorkerPicker").addEventListener("change",()=>loadAdmin());$("exportButton").addEventListener("click",()=>{if(!exportRows.length){msg("adminMessage","Ni zapisov za izvoz.");return}const cols=Object.keys(exportRows[0]),cell=v=>`"${String(v??"").replace(/"/g,'""')}"`,csv="\uFEFF"+[cols.map(cell).join(";"),...exportRows.map(r=>cols.map(c=>cell(r[c])).join(";"))].join("\r\n"),blob=new Blob([csv],{type:"text/csv;charset=utf-8;"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="beta-group-evidenca-delovnih-ur.csv";a.click();URL.revokeObjectURL(a.href)});
 db.auth.getSession().then(({data})=>data.session?enter(data.session.user):show("loginPanel",true));
 db.auth.onAuthStateChange((_e,s)=>{if(!s){show("appPanel",false);show("loginPanel",true)}});
