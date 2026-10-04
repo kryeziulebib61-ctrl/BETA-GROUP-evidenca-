@@ -22,3 +22,6 @@ MESEČNI PREGLED: Delavec (tudi administrator) lahko izbere mesec, vidi dnevni p
 
 
 Ta različica vsebuje prenovljen, odziven uporabniški vmesnik za BETA GROUP, navdihnjen s sodobnimi aplikacijami za evidenco delovnega časa. Ohranja obstoječo Supabase povezavo in obstoječe funkcije. Ne gre za uradni izdelek Poligram.
+
+
+SAMODEJNI IZRAČUN UR: delovni čas se računa od »Prihod na delo« do »Odhod z dela«. Če je prihod odprt, se trajanje sproti povečuje in se evidenca osveži vsako minuto. Dnevni in mesečni seštevki se izračunajo iz zabeleženih dogodkov.
