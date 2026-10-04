@@ -4,7 +4,17 @@ const configured=url&&key&&!url.includes("PASTE_")&&!key.includes("PASTE_");
 const show=(id,yes)=>$(id).classList.toggle("hidden",!yes);
 const msg=(id,t,bad=false)=>{$(id).textContent=t;$(id).classList.toggle("error",bad)};
 let db,user,profile,exportRows=[],liveTimer=null;
-if(!configured||!window.supabase){show("setupNotice",true);return}
+// Keep the login form visible even if the Supabase library/configuration fails to load.
+show("loginPanel",true);
+if(!configured||!window.supabase){
+  show("setupNotice",true);
+  const submit=$("loginForm").querySelector('button[type="submit"]');
+  submit.disabled=true;
+  msg("loginMessage",!configured
+    ?"Manjka nastavitev Supabase v config.js."
+    :"Supabase knjižnica se ni naložila. Osvežite stran ali preverite internetno povezavo.",true);
+  return;
+}
 db=window.supabase.createClient(url,key);
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const date=v=>new Date(v).toLocaleString("sl-SI",{dateStyle:"short",timeStyle:"short"});

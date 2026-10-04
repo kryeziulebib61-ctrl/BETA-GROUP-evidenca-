@@ -29,3 +29,6 @@ SAMODEJNI IZRAČUN UR: delovni čas se računa od »Prihod na delo« do »Odhod 
 ADMINISTRATORSKI MESEČNI PREGLED: izberite mesec za izračun ur po delavcih; v evidenci so GPS koordinate in povezava »Odpri zemljevid«. Lokacija je na voljo samo za registracije, pri katerih je bila lokacija dovoljena in shranjena.
 
 DODATNO: Delavec ima svojo dnevno in mesečno evidenco z avtomatskim izračunom ur. Administrator ima mesečni povzetek za ekipo ter izbirnik delavca za podrobno dnevno evidenco. GPS povezave so vidne, kadar so koordinate shranjene ob registraciji.
+
+
+LOGIN FIX: Prijavni obrazec je viden tudi, če se Supabase knjižnica ali konfiguracija ne naloži. V tem primeru se pokaže jasno sporočilo in prijava je onemogočena, dokler povezava ni popravljena.
