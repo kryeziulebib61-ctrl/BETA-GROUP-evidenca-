@@ -13,3 +13,6 @@ Dodajanje delavca:
 Pomembno: obrazec ustvari profil v tabeli workers, ne pa prijavnega računa. Račun se ustvari v Supabase Auth.
 
 Pred dejansko uporabo preizkusite prijavo delavca, prihod/odhod, GPS, administratorski pregled, RLS in izvoz. Ta paket ni bil preizkušen proti vaši živi zbirki podatkov.
+
+
+DODATNA SPREMEMBA: Administrator vidi tudi razdelek »Moja evidenca« z gumboma »Prihod na delo« in »Odhod z dela« za lastno evidenco. Oba gumba uporabljata prijavljeni administratorski račun.

@@ -13,9 +13,9 @@ const gps=r=>r.latitude!=null&&r.longitude!=null?`${Number(r.latitude).toFixed(5
 async function enter(u){
  user=u; const {data:p,error}=await db.from("workers").select("id,full_name,is_admin,active").eq("id",u.id).maybeSingle();
  if(error||!p||!p.active){await db.auth.signOut();show("loginPanel",true);msg("loginMessage","Uporabnik nima aktivnega profila. Obrnite se na administratorja.",true);return}
- profile=p;show("loginPanel",false);show("appPanel",true);show("adminPanel",!!p.is_admin);show("workerPanel",!p.is_admin);
+ profile=p;show("loginPanel",false);show("appPanel",true);show("adminPanel",!!p.is_admin);show("workerPanel",true);
  $("userEmail").textContent=u.email||p.full_name;$("userRole").textContent=p.is_admin?"Administrator":"Delavec";
- p.is_admin?await loadAdmin():await loadMine();
+ if(p.is_admin){await Promise.all([loadAdmin(),loadMine()])}else{await loadMine()}
 }
 $("loginForm").addEventListener("submit",async e=>{e.preventDefault();msg("loginMessage","Prijava ...");const {data,error}=await db.auth.signInWithPassword({email:$("email").value.trim(),password:$("password").value});if(error){msg("loginMessage","Prijava ni uspela. Preverite e-pošto in geslo.",true);return}await enter(data.user)});
 $("logoutButton").addEventListener("click",async()=>{await db.auth.signOut();user=profile=null;show("appPanel",false);show("loginPanel",true);$("password").value=""});
