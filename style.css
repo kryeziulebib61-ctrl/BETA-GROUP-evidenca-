@@ -37,3 +37,8 @@
 .worker-back-button:hover{background:#f3f6fb}
 #clockMessage{margin-top:12px}
 @media(max-width:520px){.worker-clock-card{padding:24px 14px 14px;margin-top:8px}.worker-main-actions{gap:10px;margin-top:24px}.worker-main-actions button{min-height:132px;font-size:16px;padding:10px 6px}.worker-action-icon{width:46px;height:46px;font-size:28px}.worker-page-heading{align-items:center}.worker-evidence-link{margin-bottom:10px}}
+
+/* Monthly totals for the administrator's selected worker */
+.worker-total-summary{display:flex;flex-wrap:wrap;gap:14px;padding:14px 18px;margin:0 0 12px;background:var(--soft, #f4f7fb);border:1px solid var(--border, #e3e8ef);border-radius:12px}
+.worker-total-summary>div{display:flex;flex-direction:column;gap:4px;min-width:120px}
+.worker-total-summary strong{font-size:1.35rem;line-height:1.25;font-variant-numeric:tabular-nums}

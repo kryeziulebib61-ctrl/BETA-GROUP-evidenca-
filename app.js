@@ -93,7 +93,8 @@ async function loadMine(){
 function adminMonth(){const p=$("adminMonthPicker");if(!p.value){const d=new Date();p.value=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`}return p.value}
 function renderAdminWorkerDaily(all,workerId,monthStart,monthEnd,now,selected){
  const body=$("adminWorkerDailyHours");$("adminWorkerMonthLabel").textContent=selected;
- if(!workerId){body.innerHTML='<tr><td colspan="6">Izberite delavca za pregled.</td></tr>';return}
+ const totalHours=$("adminWorkerTotalHours"),totalDays=$("adminWorkerTotalDays");
+ if(!workerId){body.innerHTML='<tr><td colspan="6">Izberite delavca za pregled.</td></tr>';if(totalHours)totalHours.textContent="0:00";if(totalDays)totalDays.textContent="0";return}
  const events=all.filter(r=>r.worker_id===workerId).slice().sort((a,b)=>new Date(a.event_time)-new Date(b.event_time));
  const daily={}, arrivals={}, departures={}, arrivalRows={}, departureRows={};
  let open=null;const intervals=[];
@@ -125,6 +126,10 @@ function renderAdminWorkerDaily(all,workerId,monthStart,monthEnd,now,selected){
    ?`<a href="https://www.google.com/maps?q=${encodeURIComponent(`${r.latitude},${r.longitude}`)}" target="_blank" rel="noopener noreferrer">${caption}</a>`
    :"—";
  const keys=Object.keys(daily).sort((a,b)=>b.localeCompare(a));
+ const totalMs=keys.reduce((sum,k)=>sum+(daily[k].ms||0),0);
+ const workedDays=keys.filter(k=>(daily[k].ms||0)>0).length;
+ if(totalHours)totalHours.textContent=durationLabel(totalMs);
+ if(totalDays)totalDays.textContent=String(workedDays);
  body.innerHTML=keys.map(k=>{
    const d=daily[k],a=arrivals[k],b=departures[k],ar=arrivalRows[k],dr=departureRows[k];
    const maps=`<div class="daily-map-links">${mapLink(ar,"Prihod ↗")}<span> · </span>${mapLink(dr,"Odhod ↗")}</div>`;
