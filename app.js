@@ -1,86 +1,140 @@
-(() => {
-const $=id=>document.getElementById(id), url=window.BETA_SUPABASE_URL, key=window.BETA_SUPABASE_KEY;
-const configured=url&&key&&!url.includes("PASTE_")&&!key.includes("PASTE_");
-const show=(id,yes)=>$(id).classList.toggle("hidden",!yes);
-const msg=(id,t,bad=false)=>{$(id).textContent=t;$(id).classList.toggle("error",bad)};
-let db,user,profile,exportRows=[],liveTimer=null;
-if(!configured||!window.supabase){show("setupNotice",true);return}
-db=window.supabase.createClient(url,key);
-const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const date=v=>new Date(v).toLocaleString("sl-SI",{dateStyle:"short",timeStyle:"short"});
-const label=v=>v==="arrival"?"Prihod na delo":v==="departure"?"Odhod z dela":v;
-const gps=r=>r.latitude!=null&&r.longitude!=null?`${Number(r.latitude).toFixed(5)}, ${Number(r.longitude).toFixed(5)}`:"Ni podatka";
-async function enter(u){
- user=u; const {data:p,error}=await db.from("workers").select("id,full_name,is_admin,active").eq("id",u.id).maybeSingle();
- if(error||!p||!p.active){await db.auth.signOut();show("loginPanel",true);msg("loginMessage","Uporabnik nima aktivnega profila. Obrnite se na administratorja.",true);return}
- profile=p;show("loginPanel",false);show("appPanel",true);show("adminPanel",!!p.is_admin);show("workerPanel",true);if(liveTimer)clearInterval(liveTimer);liveTimer=setInterval(()=>{if(user)loadMine()},60000);
- $("userEmail").textContent=u.email||p.full_name;$("userRole").textContent=p.is_admin?"Administrator":"Delavec";
- if(p.is_admin){await Promise.all([loadAdmin(),loadMine()])}else{await loadMine()}
+const { createClient } = window.supabase;
+const sb = createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+
+const $ = id => document.getElementById(id);
+let currentUser = null, profile = null, entries = [];
+
+function toast(text){ const t=$("toast"); t.textContent=text; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),2800); }
+function localDate(){ return new Date().toISOString().slice(0,10); }
+function monthNow(){ return new Date().toISOString().slice(0,7); }
+function fmtTime(v){ return v ? new Date(v).toLocaleTimeString("sl-SI",{hour:"2-digit",minute:"2-digit"}) : "—"; }
+function fmtDate(v){ return new Date(v).toLocaleDateString("sl-SI"); }
+function hoursBetween(a,b){ return a&&b ? Math.max(0,(new Date(b)-new Date(a))/3600000) : 0; }
+function hoursText(h){ return `${h.toFixed(2)} h`; }
+function mapLink(lat,lng){ return `https://www.openstreetmap.org/?mlat=${encodeURIComponent(lat)}&mlon=${encodeURIComponent(lng)}#map=18/${encodeURIComponent(lat)}/${encodeURIComponent(lng)}`; }
+
+async function init(){
+  if(window.SUPABASE_URL.includes("YOUR-PROJECT")) {
+    $("loginMsg").textContent="Najprej v datoteki config.js vnesi URL in anon key svojega Supabase projekta.";
+    return;
+  }
+  const {data:{session}}=await sb.auth.getSession();
+  if(session) await loadUser(session.user);
+  sb.auth.onAuthStateChange(async (_event,session)=>{
+    if(session) await loadUser(session.user); else showLogin();
+  });
 }
-$("loginForm").addEventListener("submit",async e=>{e.preventDefault();msg("loginMessage","Prijava ...");const {data,error}=await db.auth.signInWithPassword({email:$("email").value.trim(),password:$("password").value});if(error){msg("loginMessage","Prijava ni uspela. Preverite e-pošto in geslo.",true);return}await enter(data.user)});
-$("logoutButton").addEventListener("click",async()=>{await db.auth.signOut();user=profile=null;if(liveTimer)clearInterval(liveTimer);liveTimer=null;show("appPanel",false);show("loginPanel",true);$("password").value=""});
-function locationNow(){return new Promise((resolve,reject)=>{if(!navigator.geolocation)return reject(new Error("GPS ni podprt."));navigator.geolocation.getCurrentPosition(p=>resolve({latitude:p.coords.latitude,longitude:p.coords.longitude}),()=>reject(new Error("Dovolite dostop do lokacije in poskusite znova.")),{enableHighAccuracy:true,timeout:15000,maximumAge:0})})}
-async function clock(type){["arrivalButton","departureButton"].forEach(id=>$(id).disabled=true);msg("clockMessage","Pridobivanje lokacije in shranjevanje ...");try{const loc=await locationNow();const {error}=await db.rpc("clock_event",{p_event_type:type,p_latitude:loc.latitude,p_longitude:loc.longitude});if(error)throw error;msg("clockMessage",label(type)+" je zabeležen.");await loadMine()}catch(e){msg("clockMessage",e.message||"Zapisa ni bilo mogoče shraniti.",true)}finally{["arrivalButton","departureButton"].forEach(id=>$(id).disabled=false)}}
-$("arrivalButton").addEventListener("click",()=>clock("arrival"));$("departureButton").addEventListener("click",()=>clock("departure"));$("monthPicker").addEventListener("change",()=>loadMine());
-function currentMonth(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`}
-function monthBounds(value){const [y,m]=value.split("-").map(Number);return {start:new Date(y,m-1,1).toISOString(),end:new Date(y,m,1).toISOString()}}
-function durationLabel(ms){const mins=Math.max(0,Math.floor(ms/60000));return `${Math.floor(mins/60)}:${String(mins%60).padStart(2,"0")}`}
-async function loadMine(){
- const picker=$("monthPicker");if(!picker.value)picker.value=currentMonth();
- const bounds=monthBounds(picker.value);
- // Load a little before the selected month so an overnight shift can be paired correctly.
- const from=new Date(new Date(bounds.start).getTime()-36*60*60*1000).toISOString();
- const {data,error}=await db.from("work_hours").select("id,event_type,event_time,latitude,longitude").eq("worker_id",user.id).gte("event_time",from).lt("event_time",bounds.end).order("event_time",{ascending:true});
- if(error){msg("clockMessage","Evidenca ni na voljo. Preverite povezavo.",true);return}
- const allRows=data||[], monthStart=new Date(bounds.start), monthEnd=new Date(bounds.end), now=new Date();
- const days={};
- // Pair events in time order. An open arrival counts up to the current time automatically.
- let open=null; const intervals=[];
- for(const r of allRows){
-   const t=new Date(r.event_time);
-   if(r.event_type==="arrival"){
-     if(open===null)open=r;
-   }else if(r.event_type==="departure"&&open!==null){
-     const a=new Date(open.event_time), b=t;
-     if(b>a)intervals.push({start:a,end:b,arrival:open.event_time,departure:r.event_time});
-     open=null;
-   }
- }
- if(open!==null){const a=new Date(open.event_time);if(now>a)intervals.push({start:a,end:now,arrival:open.event_time,departure:null});}
- // Attribute elapsed time to each local calendar day and only to the selected month.
- const dailyMs={}, arrivals={}, departures={}, hasOpen={};
- for(const r of allRows){
-   const d=new Date(r.event_time);if(d<monthStart||d>=monthEnd)continue;
-   const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-   if(r.event_type==="arrival"&&!arrivals[k])arrivals[k]=r.event_time;
-   if(r.event_type==="departure")departures[k]=r.event_time;
- }
- let totalMs=0,workedDays=0;
- for(const it of intervals){
-   let cursor=new Date(Math.max(it.start.getTime(),monthStart.getTime()));
-   const stop=new Date(Math.min(it.end.getTime(),monthEnd.getTime()));
-   while(cursor<stop){
-     const nextDay=new Date(cursor.getFullYear(),cursor.getMonth(),cursor.getDate()+1);
-     const segmentEnd=new Date(Math.min(stop.getTime(),nextDay.getTime()));
-     const k=`${cursor.getFullYear()}-${String(cursor.getMonth()+1).padStart(2,"0")}-${String(cursor.getDate()).padStart(2,"0")}`;
-     dailyMs[k]=(dailyMs[k]||0)+(segmentEnd-cursor);if(it.departure===null)hasOpen[k]=true;
-     cursor=segmentEnd;
-   }
- }
- const keys=new Set([...Object.keys(arrivals),...Object.keys(departures),...Object.keys(dailyMs)]);
- const daily=[...keys].sort((a,b)=>b.localeCompare(a)).map(key=>{
-   const ms=dailyMs[key]||0;totalMs+=ms;if(ms>0)workedDays++;
-   const last=departures[key]||null;
-   return {key,firstArrival:arrivals[key]||null,lastDeparture:last,ms,open:!!hasOpen[key]};
- });
- $("monthTotal").textContent=durationLabel(totalMs);$("monthDays").textContent=String(workedDays);$("monthEvents").textContent=String(allRows.filter(r=>new Date(r.event_time)>=monthStart&&new Date(r.event_time)<monthEnd).length);
- $("monthlyHours").innerHTML=daily.map(d=>`<tr><td>${esc(new Date(`${d.key}T12:00:00`).toLocaleDateString("sl-SI"))}</td><td>${d.firstArrival?esc(new Date(d.firstArrival).toLocaleTimeString("sl-SI",{hour:"2-digit",minute:"2-digit"})):"—"}</td><td>${d.lastDeparture?esc(new Date(d.lastDeparture).toLocaleTimeString("sl-SI",{hour:"2-digit",minute:"2-digit"})):"—"}</td><td><strong>${durationLabel(d.ms)}</strong></td><td>${d.open?"Delo še poteka · ure se samodejno štejejo":d.ms>0?"Zaključeno":"Brez para prihod/odhod"}</td></tr>`).join("")||'<tr><td colspan="5">Za ta mesec še ni zapisov.</td></tr>';
- const rows=allRows.filter(r=>new Date(r.event_time)>=monthStart&&new Date(r.event_time)<monthEnd);
- $("myHours").innerHTML=rows.slice().sort((a,b)=>new Date(b.event_time)-new Date(a.event_time)).map(r=>`<tr><td>${esc(date(r.event_time))}</td><td>${esc(label(r.event_type))}</td><td>${esc(gps(r))}</td></tr>`).join("")||'<tr><td colspan="3">Za ta mesec še ni zapisov.</td></tr>';
+async function loadUser(user){
+  currentUser=user;
+  const {data:p,error}=await sb.from("profiles").select("*").eq("id",user.id).single();
+  if(error){ $("loginMsg").textContent=error.message; return; }
+  profile=p;
+  $("loginView").classList.add("hidden"); $("mainView").classList.remove("hidden");
+  $("welcomeTitle").textContent=profile.full_name ? `Pozdravljen, ${profile.full_name}` : "Moja evidenca delovnega časa";
+  $("todayText").textContent=new Date().toLocaleDateString("sl-SI",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
+  $("monthPicker").value=monthNow(); $("adminMonth").value=monthNow();
+  $("workerPanel").classList.toggle("hidden",profile.role!=="worker");
+  $("adminPanel").classList.toggle("hidden",profile.role!=="admin");
+  await refresh();
 }
-async function loadAdmin(){msg("adminMessage","Nalaganje podatkov ...");const [wr,hr]=await Promise.all([db.from("workers").select("id,full_name,active,is_admin").order("full_name"),db.from("work_hours").select("id,worker_id,event_type,event_time,latitude,longitude").order("event_time",{ascending:false}).limit(2000)]);if(wr.error||hr.error){msg("adminMessage","Podatkov ni mogoče naložiti. Preverite pravila dostopa.",true);return}const workers=wr.data||[], map=Object.fromEntries(workers.map(w=>[w.id,w]));$("workersTable").innerHTML=workers.map(w=>`<tr><td>${esc(w.full_name)}</td><td>${esc(w.id)}</td><td>${w.active?"Aktiven":"Neaktiven"}${w.is_admin?" · Administrator":""}</td></tr>`).join("")||'<tr><td colspan="3">Ni delavcev.</td></tr>';exportRows=(hr.data||[]).map(r=>({"Datum in ura":date(r.event_time),"Delavec":map[r.worker_id]?.full_name||r.worker_id,"Dogodek":label(r.event_type),"Latitude":r.latitude??"","Longitude":r.longitude??""}));$("allHours").innerHTML=(hr.data||[]).map(r=>`<tr><td>${esc(date(r.event_time))}</td><td>${esc(map[r.worker_id]?.full_name||r.worker_id)}</td><td>${esc(label(r.event_type))}</td><td>${esc(gps(r))}</td></tr>`).join("")||'<tr><td colspan="4">Ni zapisov.</td></tr>';msg("adminMessage",`Delavcev: ${workers.length}. Zapisov: ${exportRows.length}.`)}
-$("addWorkerForm").addEventListener("submit",async e=>{e.preventDefault();const name=$("workerName").value.trim(),id=$("workerUid").value.trim();const btn=$("addWorkerButton");btn.disabled=true;msg("addWorkerMessage","Shranjevanje profila ...");try{const {error}=await db.from("workers").insert({id,full_name:name,is_admin:false,active:true});if(error)throw error;$("workerName").value="";$("workerUid").value="";msg("addWorkerMessage","Profil delavca je dodan. Delavec se lahko prijavi z računom, ki ste ga ustvarili v Supabase Auth.");await loadAdmin()}catch(e){msg("addWorkerMessage",e.message||"Profila ni bilo mogoče dodati. Preverite User UID in pravila dostopa.",true)}finally{btn.disabled=false}});
-$("refreshButton").addEventListener("click",loadAdmin);$("exportButton").addEventListener("click",()=>{if(!exportRows.length){msg("adminMessage","Ni zapisov za izvoz.");return}const cols=Object.keys(exportRows[0]),cell=v=>`"${String(v??"").replace(/"/g,'""')}"`,csv="\uFEFF"+[cols.map(cell).join(";"),...exportRows.map(r=>cols.map(c=>cell(r[c])).join(";"))].join("\r\n"),blob=new Blob([csv],{type:"text/csv;charset=utf-8;"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="beta-group-evidenca-delovnih-ur.csv";a.click();URL.revokeObjectURL(a.href)});
-db.auth.getSession().then(({data})=>data.session?enter(data.session.user):show("loginPanel",true));
-db.auth.onAuthStateChange((_e,s)=>{if(!s){show("appPanel",false);show("loginPanel",true)}});
-})();
+function showLogin(){ currentUser=null;profile=null;$("mainView").classList.add("hidden");$("loginView").classList.remove("hidden"); }
+
+async function refresh(){
+  if(!currentUser)return;
+  await loadEntries($("monthPicker").value || monthNow());
+  if(profile.role==="worker") await updateTodayState();
+  if(profile.role==="admin") await loadAdmin();
+}
+async function loadEntries(month){
+  const start=`${month}-01`;
+  const d=new Date(`${month}-01T00:00:00`); d.setMonth(d.getMonth()+1);
+  const end=d.toISOString().slice(0,10);
+  let q=sb.from("time_entries").select("*,profiles(full_name,email)").gte("work_date",start).lt("work_date",end).order("work_date",{ascending:false});
+  if(profile.role==="worker") q=q.eq("user_id",currentUser.id);
+  const {data,error}=await q;
+  if(error){toast(error.message);return}
+  entries=data||[];
+  renderEntries(entries);
+}
+function renderEntries(rows){
+  $("entriesBody").innerHTML=rows.length?rows.map(e=>{
+    const h=hoursBetween(e.arrival_at,e.departure_at);
+    const loc=(e.arrival_lat!=null)?`<a target="_blank" href="${mapLink(e.arrival_lat,e.arrival_lng)}">Prihod</a>${e.departure_lat!=null?` · <a target="_blank" href="${mapLink(e.departure_lat,e.departure_lng)}">Odhod</a>`:""}`:"—";
+    return `<tr><td>${fmtDate(e.work_date)}</td><td>${fmtTime(e.arrival_at)}</td><td>${fmtTime(e.departure_at)}</td><td>${hoursText(h)}</td><td>${loc}</td></tr>`;
+  }).join(""):`<tr><td colspan="5">Ni vpisov za ta mesec.</td></tr>`;
+  const total=rows.reduce((s,e)=>s+hoursBetween(e.arrival_at,e.departure_at),0);
+  $("summaryCards").innerHTML=`<div class="summary">Skupaj<b>${hoursText(total)}</b></div><div class="summary">Dni z vpisom<b>${new Set(rows.map(x=>x.work_date)).size}</b></div><div class="summary">Povprečje/dan<b>${rows.length?hoursText(total/new Set(rows.map(x=>x.work_date)).size):"0.00 h"}</b></div>`;
+}
+async function updateTodayState(){
+  const {data}=await sb.from("time_entries").select("*").eq("user_id",currentUser.id).eq("work_date",localDate()).maybeSingle();
+  const inNow=data?.arrival_at && !data?.departure_at;
+  $("arrivalBtn").disabled=!!data?.arrival_at;
+  $("departureBtn").disabled=!inNow;
+  $("statusBadge").textContent=inNow?"NA DELU":data?.departure_at?"ZAKLJUČENO":"NI VPISA";
+  $("statusBadge").className="badge "+(inNow?"status-in":"status-out");
+}
+function getPosition(){
+  return new Promise((resolve,reject)=>{
+    if(!navigator.geolocation)return reject(new Error("Brskalnik ne podpira lokacije."));
+    navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:true,timeout:15000,maximumAge:0});
+  });
+}
+async function punch(kind){
+  $("locationStatus").textContent="Pridobivam trenutno lokacijo …";
+  try{
+    const pos=await getPosition(), lat=pos.coords.latitude,lng=pos.coords.longitude;
+    const now=new Date().toISOString();
+    const {data:existing}=await sb.from("time_entries").select("id,arrival_at,departure_at").eq("user_id",currentUser.id).eq("work_date",localDate()).maybeSingle();
+    let result;
+    if(kind==="arrival"){
+      if(existing) throw new Error("Današnji prihod je že zabeležen.");
+      result=await sb.from("time_entries").insert({user_id:currentUser.id,work_date:localDate(),arrival_at:now,arrival_lat:lat,arrival_lng:lng});
+    }else{
+      if(!existing?.arrival_at) throw new Error("Najprej zabeležite prihod.");
+      if(existing.departure_at) throw new Error("Današnji odhod je že zabeležen.");
+      result=await sb.from("time_entries").update({departure_at:now,departure_lat:lat,departure_lng:lng}).eq("id",existing.id);
+    }
+    if(result.error)throw result.error;
+    $("locationStatus").textContent=`Lokacija shranjena: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    toast(kind==="arrival"?"Prihod je zabeležen.":"Odhod je zabeležen.");
+    await refresh();
+  }catch(e){ $("locationStatus").textContent=e.message; }
+}
+async function loadAdmin(){
+  const month=$("adminMonth").value||monthNow();
+  const {data:workers,error}=await sb.from("profiles").select("id,full_name,email,role").eq("role","worker").order("full_name");
+  if(error){toast(error.message);return}
+  const start=`${month}-01`;const d=new Date(`${month}-01T00:00:00`);d.setMonth(d.getMonth()+1);const end=d.toISOString().slice(0,10);
+  const {data:all,error:e2}=await sb.from("time_entries").select("*,profiles(full_name,email)").gte("work_date",start).lt("work_date",end).order("work_date",{ascending:false});
+  if(e2){toast(e2.message);return}
+  const byUser={};(all||[]).forEach(e=>{byUser[e.user_id]=(byUser[e.user_id]||0)+hoursBetween(e.arrival_at,e.departure_at)});
+  $("workersBody").innerHTML=workers?.length?workers.map(w=>`<tr><td>${w.full_name||"—"}</td><td>${w.email||"—"}</td><td>${hoursText(byUser[w.id]||0)}</td><td>${fmtTime((all||[]).find(x=>x.user_id===w.id)?.arrival_at)}</td></tr>`).join(""):`<tr><td colspan="4">Ni delavcev.</td></tr>`;
+  const total=(all||[]).reduce((s,e)=>s+hoursBetween(e.arrival_at,e.departure_at),0);$("adminTotal").textContent=hoursText(total);
+  $("locationList").innerHTML=(all||[]).flatMap(e=>{
+    const name=e.profiles?.full_name||"Delavec";
+    const out=[];
+    if(e.arrival_lat!=null)out.push(`<div class="location-item"><b>${name}</b> · ${fmtDate(e.work_date)} · Prihod ${fmtTime(e.arrival_at)} · <a target="_blank" href="${mapLink(e.arrival_lat,e.arrival_lng)}">Odpri lokacijo prihoda</a></div>`);
+    if(e.departure_lat!=null)out.push(`<div class="location-item"><b>${name}</b> · ${fmtDate(e.work_date)} · Odhod ${fmtTime(e.departure_at)} · <a target="_blank" href="${mapLink(e.departure_lat,e.departure_lng)}">Odpri lokacijo odhoda</a></div>`);
+    return out;
+  }).join("")||"<div class='location-item'>Ni lokacij za izbrani mesec.</div>";
+}
+
+$("loginForm").addEventListener("submit",async ev=>{
+  ev.preventDefault();$("loginMsg").textContent="Prijavljam …";
+  const {error}=await sb.auth.signInWithPassword({email:$("loginEmail").value.trim(),password:$("loginPassword").value});
+  $("loginMsg").textContent=error?error.message:"";
+});
+$("logoutBtn").addEventListener("click",()=>sb.auth.signOut());
+$("arrivalBtn").addEventListener("click",()=>punch("arrival"));
+$("departureBtn").addEventListener("click",()=>punch("departure"));
+$("monthPicker").addEventListener("change",refresh);
+$("adminMonth").addEventListener("change",loadAdmin);
+$("workerForm").addEventListener("submit",async ev=>{
+  ev.preventDefault();$("workerMsg").textContent="Ustvarjam delavca …";
+  const {data:{session}}=await sb.auth.getSession();
+  const res=await fetch(`${window.SUPABASE_URL}/functions/v1/create-worker`,{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${session.access_token}`},body:JSON.stringify({full_name:$("workerName").value.trim(),email:$("workerEmail").value.trim(),password:$("workerPassword").value})});
+  const json=await res.json().catch(()=>({}));
+  $("workerMsg").textContent=res.ok?"Delavec je uspešno dodan.":(json.error||"Napaka pri dodajanju.");
+  if(res.ok){$("workerForm").reset();await loadAdmin();}
+});
+init();
