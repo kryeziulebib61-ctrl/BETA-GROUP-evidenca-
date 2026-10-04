@@ -15,7 +15,9 @@ if(!configured||!window.supabase){
     :"Supabase knjižnica se ni naložila. Osvežite stran ali preverite internetno povezavo.",true);
   return;
 }
-db=window.supabase.createClient(url,key);
+db=window.supabase.createClient(url,key,{
+  auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storage:window.localStorage}
+});
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const date=v=>new Date(v).toLocaleString("sl-SI",{dateStyle:"short",timeStyle:"short"});
 const label=v=>v==="arrival"?"Prihod na delo":v==="departure"?"Odhod z dela":v;
@@ -27,8 +29,8 @@ async function enter(u){
  $("userEmail").textContent=u.email||p.full_name;$("userRole").textContent=p.is_admin?"Administrator":"Delavec";
  if(p.is_admin){await Promise.all([loadAdmin(),loadMine()])}else{await loadMine()}
 }
-$("loginForm").addEventListener("submit",async e=>{e.preventDefault();msg("loginMessage","Prijava ...");const {data,error}=await db.auth.signInWithPassword({email:$("email").value.trim(),password:$("password").value});if(error){msg("loginMessage","Prijava ni uspela. Preverite e-pošto in geslo.",true);return}await enter(data.user)});
-$("logoutButton").addEventListener("click",async()=>{await db.auth.signOut();user=profile=null;if(liveTimer)clearInterval(liveTimer);liveTimer=null;show("appPanel",false);show("loginPanel",true);$("password").value=""});
+$("loginForm").addEventListener("submit",async e=>{e.preventDefault();msg("loginMessage","Prijava ...");const {data,error}=await db.auth.signInWithPassword({email:$("email").value.trim(),password:$("password").value});if(error){msg("loginMessage","Prijava ni uspela. Preverite e-pošto in geslo.",true);return}enteredUserId=data.user.id;await enter(data.user)});
+$("logoutButton").addEventListener("click",async()=>{await db.auth.signOut();enteredUserId=null;user=profile=null;if(liveTimer)clearInterval(liveTimer);liveTimer=null;show("appPanel",false);show("loginPanel",true);$("password").value=""});
 function locationNow(){return new Promise((resolve,reject)=>{if(!navigator.geolocation)return reject(new Error("GPS ni podprt."));navigator.geolocation.getCurrentPosition(p=>resolve({latitude:p.coords.latitude,longitude:p.coords.longitude}),()=>reject(new Error("Dovolite dostop do lokacije in poskusite znova.")),{enableHighAccuracy:true,timeout:15000,maximumAge:0})})}
 async function clock(type){["arrivalButton","departureButton"].forEach(id=>$(id).disabled=true);msg("clockMessage","Pridobivanje lokacije in shranjevanje ...");try{const loc=await locationNow();const {error}=await db.rpc("clock_event",{p_event_type:type,p_latitude:loc.latitude,p_longitude:loc.longitude});if(error)throw error;msg("clockMessage",label(type)+" je zabeležen.");await loadMine()}catch(e){msg("clockMessage",e.message||"Zapisa ni bilo mogoče shraniti.",true)}finally{["arrivalButton","departureButton"].forEach(id=>$(id).disabled=false)}}
 $("arrivalButton").addEventListener("click",()=>clock("arrival"));$("departureButton").addEventListener("click",()=>clock("departure"));$("monthPicker").addEventListener("change",()=>loadMine());$("openWorkTimeButton").addEventListener("click",()=>{show("workerHomePage",false);show("workerEvidencePage",true);window.scrollTo({top:0,behavior:"auto"});});$("backToWorkerHome").addEventListener("click",()=>{show("workerEvidencePage",false);show("workerHomePage",true);window.scrollTo({top:0,behavior:"auto"});});
@@ -161,6 +163,23 @@ $("addWorkerForm").addEventListener("submit",async e=>{e.preventDefault();const 
  $("adminMonthlyHours").addEventListener("click",async e=>{const b=e.target.closest("[data-worker-id]");if(!b)return;e.preventDefault();const workerId=b.dataset.workerId;const picker=$("adminWorkerPicker");picker.value=workerId;await loadAdmin();picker.value=workerId;renderSelectedAdminWorker();const panel=$("adminWorkerDailyHours").closest(".table-panel");if(panel)panel.scrollIntoView({behavior:"auto",block:"start"});});
 function renderSelectedAdminWorker(){const selected=adminMonth(),bounds=monthBounds(selected);db.from("work_hours").select("id,worker_id,event_type,event_time,latitude,longitude").gte("event_time",new Date(new Date(bounds.start).getTime()-36*60*60*1000).toISOString()).lt("event_time",bounds.end).order("event_time",{ascending:true}).limit(10000).then(({data,error})=>{if(error){msg("adminMessage","Podrobnosti delavca ni mogoče naložiti.",true);return}renderAdminWorkerDaily(data||[],$("adminWorkerPicker").value,new Date(bounds.start),new Date(bounds.end),new Date(),selected)})}
 $("refreshButton").addEventListener("click",loadAdmin);$("adminMonthPicker").addEventListener("change",loadAdmin);$("adminWorkerPicker").addEventListener("change",()=>loadAdmin());$("exportButton").addEventListener("click",()=>{if(!exportRows.length){msg("adminMessage","Ni zapisov za izvoz.");return}const cols=Object.keys(exportRows[0]),cell=v=>`"${String(v??"").replace(/"/g,'""')}"`,csv="\uFEFF"+[cols.map(cell).join(";"),...exportRows.map(r=>cols.map(c=>cell(r[c])).join(";"))].join("\r\n"),blob=new Blob([csv],{type:"text/csv;charset=utf-8;"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="beta-group-evidenca-delovnih-ur.csv";a.click();URL.revokeObjectURL(a.href)});
-db.auth.getSession().then(({data})=>data.session?enter(data.session.user):show("loginPanel",true));
-db.auth.onAuthStateChange((_e,s)=>{if(!s){show("appPanel",false);show("loginPanel",true)}});
+let enteredUserId=null;
+async function restoreSession(){
+  const {data,error}=await db.auth.getSession();
+  if(error){show("appPanel",false);show("loginPanel",true);return}
+  if(data.session){
+    if(enteredUserId!==data.session.user.id){enteredUserId=data.session.user.id;await enter(data.session.user)}
+  }else{show("appPanel",false);show("loginPanel",true)}
+}
+db.auth.onAuthStateChange((event,session)=>{
+  if(session && (event==="SIGNED_IN" || event==="INITIAL_SESSION" || event==="TOKEN_REFRESHED")){
+    if(enteredUserId!==session.user.id){enteredUserId=session.user.id;Promise.resolve().then(()=>enter(session.user))}
+  }
+  if(event==="SIGNED_OUT"){
+    enteredUserId=null;user=profile=null;
+    if(liveTimer)clearInterval(liveTimer);liveTimer=null;
+    show("appPanel",false);show("loginPanel",true);
+  }
+});
+restoreSession();
 })();
