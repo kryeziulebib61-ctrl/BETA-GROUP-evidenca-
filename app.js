@@ -108,7 +108,8 @@ async function loadAdmin(){
   const {data:all,error:e2}=await sb.from("time_entries").select("*,profiles(full_name,email)").gte("work_date",start).lt("work_date",end).order("work_date",{ascending:false});
   if(e2){toast(e2.message);return}
   const byUser={};(all||[]).forEach(e=>{byUser[e.user_id]=(byUser[e.user_id]||0)+hoursBetween(e.arrival_at,e.departure_at)});
-  $("workersBody").innerHTML=workers?.length?workers.map(w=>`<tr><td>${w.full_name||"—"}</td><td>${w.email||"—"}</td><td>${hoursText(byUser[w.id]||0)}</td><td>${fmtTime((all||[]).find(x=>x.user_id===w.id)?.arrival_at)}</td></tr>`).join(""):`<tr><td colspan="4">Ni delavcev.</td></tr>`;
+  $("workersBody").innerHTML=workers?.length?workers.map(w=>`<tr><td><button class="link-btn" data-worker-id="${w.id}" data-worker-name="${String(w.full_name||"Delavec").replace(/"/g,"&quot;")}">${w.full_name||"—"}</button></td><td>${w.email||"—"}</td><td><b>${hoursText(byUser[w.id]||0)}</b></td><td>${fmtTime((all||[]).find(x=>x.user_id===w.id)?.arrival_at)}</td></tr>`).join(""):`<tr><td colspan="4">Ni delavcev.</td></tr>`;
+$("adminActions").innerHTML=`<button id="exportCsvBtn" class="primary">⬇ Prenesi delovni čas (CSV)</button>`;
   const total=(all||[]).reduce((s,e)=>s+hoursBetween(e.arrival_at,e.departure_at),0);$("adminTotal").textContent=hoursText(total);
   $("locationList").innerHTML=(all||[]).flatMap(e=>{
     const name=e.profiles?.full_name||"Delavec";
@@ -129,6 +130,12 @@ $("arrivalBtn").addEventListener("click",()=>punch("arrival"));
 $("departureBtn").addEventListener("click",()=>punch("departure"));
 $("monthPicker").addEventListener("change",refresh);
 $("adminMonth").addEventListener("change",loadAdmin);
+document.addEventListener("click", async (ev)=>{
+  const workerBtn=ev.target.closest("[data-worker-id]");
+  if(workerBtn){ await showWorkerDetail(workerBtn.dataset.workerId, workerBtn.dataset.workerName); }
+  const exportBtn=ev.target.closest("#exportCsvBtn");
+  if(exportBtn){ exportMonthCsv(); }
+});
 $("workerForm").addEventListener("submit",async ev=>{
   ev.preventDefault();$("workerMsg").textContent="Ustvarjam delavca …";
   const {data:{session}}=await sb.auth.getSession();
@@ -138,3 +145,48 @@ $("workerForm").addEventListener("submit",async ev=>{
   if(res.ok){$("workerForm").reset();await loadAdmin();}
 });
 init();
+
+async function showWorkerDetail(userId, workerName){
+  const month=$("adminMonth").value||monthNow();
+  const start=`${month}-01`; const d=new Date(`${month}-01T00:00:00`); d.setMonth(d.getMonth()+1); const end=d.toISOString().slice(0,10);
+  const {data,error}=await sb.from("time_entries").select("*").eq("user_id",userId).gte("work_date",start).lt("work_date",end).order("work_date",{ascending:true});
+  if(error){toast(error.message);return;}
+  const rows=data||[], total=rows.reduce((sum,e)=>sum+hoursBetween(e.arrival_at,e.departure_at),0);
+  $("workerDetail").classList.remove("hidden");
+  $("workerDetailTitle").textContent=`Delovni čas – ${workerName}`;
+  $("workerDetailBody").innerHTML=rows.length?rows.map(e=>{
+    const h=hoursBetween(e.arrival_at,e.departure_at);
+    const loc=[];
+    if(e.arrival_lat!=null)loc.push(`<a target="_blank" href="${mapLink(e.arrival_lat,e.arrival_lng)}">Prihod</a>`);
+    if(e.departure_lat!=null)loc.push(`<a target="_blank" href="${mapLink(e.departure_lat,e.departure_lng)}">Odhod</a>`);
+    return `<tr><td>${fmtDate(e.work_date)}</td><td>${fmtTime(e.arrival_at)}</td><td>${fmtTime(e.departure_at)}</td><td>${hoursText(h)}</td><td>${loc.join(" · ")||"—"}</td></tr>`;
+  }).join(""):`<tr><td colspan="5">Ni zapisov.</td></tr>`;
+  $("workerDetailTotal").textContent=`Skupaj: ${hoursText(total)}`;
+  $("workerDetail").scrollIntoView({behavior:"smooth",block:"start"});
+}
+function exportMonthCsv(){
+  const month=$("adminMonth").value||monthNow();
+  const rows=[["Delavec","Datum","Prihod","Odhod","Ure","Prihod lat","Prihod lng","Odhod lat","Odhod lng"]];
+  // entries contains the currently selected month only for the current user's view,
+  // so for admin fetch all records again before export.
+  (async()=>{
+    const start=`${month}-01`; const d=new Date(`${month}-01T00:00:00`); d.setMonth(d.getMonth()+1); const end=d.toISOString().slice(0,10);
+    const {data,error}=await sb.from("time_entries").select("*,profiles(full_name)").gte("work_date",start).lt("work_date",end).order("work_date",{ascending:true});
+    if(error){toast(error.message);return;}
+    (data||[]).forEach(e=>rows.push([e.profiles?.full_name||"",e.work_date,fmtTime(e.arrival_at),fmtTime(e.departure_at),hoursBetween(e.arrival_at,e.departure_at).toFixed(2),e.arrival_lat??"",e.arrival_lng??"",e.departure_lat??"",e.departure_lng??""]));
+    const csv="\uFEFF"+rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(";")).join("\n");
+    const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`BETA_GROUP_delovni_cas_${month}.csv`;a.click();URL.revokeObjectURL(a.href);
+  })();
+}
+
+document.addEventListener("click",(ev)=>{
+  if(ev.target.closest("#workerExportBtn")) {
+    const month=$("monthPicker").value||monthNow();
+    const rows=[["Datum","Prihod","Odhod","Ure"]];
+    entries.forEach(e=>rows.push([e.work_date,fmtTime(e.arrival_at),fmtTime(e.departure_at),hoursBetween(e.arrival_at,e.departure_at).toFixed(2)]));
+    const csv="\uFEFF"+rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(";")).join("\n");
+    const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`BETA_GROUP_moj_delovni_cas_${month}.csv`;a.click();URL.revokeObjectURL(a.href);
+  }
+});
