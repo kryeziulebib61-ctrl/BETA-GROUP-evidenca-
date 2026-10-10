@@ -30,7 +30,27 @@ async function enter(u){
  $("userEmail").textContent=u.email||p.full_name;$("userRole").textContent=p.is_admin?"Administrator":"Delavec";
  if(p.is_admin){await Promise.all([loadAdmin(),loadMine()])}else{await loadMine()}
 }
-$("loginForm").addEventListener("submit",async e=>{e.preventDefault();msg("loginMessage","Prijava ...");const {data,error}=await db.auth.signInWithPassword({email:$("email").value.trim(),password:$("password").value});if(error){msg("loginMessage","Prijava ni uspela. Preverite e-pošto in geslo.",true);return}enteredUserId=data.user.id;await enter(data.user)});
+$("loginForm").addEventListener("submit",async e=>{
+ e.preventDefault();
+ const btn=$("loginForm").querySelector('button[type="submit"]');
+ if(btn)btn.disabled=true;
+ msg("loginMessage","Prijava ...");
+ try{
+   const result=await Promise.race([
+     db.auth.signInWithPassword({email:$("email").value.trim(),password:$("password").value}),
+     new Promise((_,reject)=>setTimeout(()=>reject(new Error("Prijava traja predolgo. Preverite internetno povezavo in poskusite znova.")),15000))
+   ]);
+   if(result.error)throw result.error;
+   if(!result.data?.user)throw new Error("Supabase ni vrnil uporabnika.");
+   enteredUserId=result.data.user.id;
+   msg("loginMessage","Prijava uspešna. Nalagam evidenco ...");
+   await enter(result.data.user);
+ }catch(err){
+   enteredUserId=null;
+   show("appPanel",false);show("loginPanel",true);
+   msg("loginMessage",err?.message||"Prijava ni uspela. Preverite povezavo, e-pošto in geslo.",true);
+ }finally{if(btn)btn.disabled=false}
+});
 $("logoutButton").addEventListener("click",async()=>{await db.auth.signOut();enteredUserId=null;user=profile=null;if(liveTimer)clearInterval(liveTimer);liveTimer=null;show("appPanel",false);show("loginPanel",true);$("password").value=""});
 function locationNow(){return new Promise((resolve,reject)=>{if(!navigator.geolocation)return reject(new Error("GPS ni podprt."));navigator.geolocation.getCurrentPosition(p=>resolve({latitude:p.coords.latitude,longitude:p.coords.longitude}),()=>reject(new Error("Dovolite dostop do lokacije in poskusite znova.")),{enableHighAccuracy:true,timeout:15000,maximumAge:0})})}
 async function clock(type){["arrivalButton","departureButton"].forEach(id=>$(id).disabled=true);msg("clockMessage","Pridobivanje lokacije in shranjevanje ...");try{const loc=await locationNow();const {error}=await db.rpc("clock_event",{p_event_type:type,p_latitude:loc.latitude,p_longitude:loc.longitude});if(error)throw error;msg("clockMessage",label(type)+" je zabeležen.");await loadMine()}catch(e){msg("clockMessage",e.message||"Zapisa ni bilo mogoče shraniti.",true)}finally{["arrivalButton","departureButton"].forEach(id=>$(id).disabled=false)}}
@@ -312,13 +332,13 @@ $("allHours").addEventListener("click",async e=>{
 let enteredUserId=null;
 async function restoreSession(){
   const {data,error}=await db.auth.getSession();
-  if(error){show("appPanel",false);show("loginPanel",true);return}
+  if(error){show("appPanel",false);show("loginPanel",true);msg("loginMessage","Seje ni mogoče obnoviti: "+error.message,true);return}
   if(data.session){
     if(enteredUserId!==data.session.user.id){enteredUserId=data.session.user.id;await enter(data.session.user)}
   }else{show("appPanel",false);show("loginPanel",true)}
 }
 db.auth.onAuthStateChange((event,session)=>{
-  if(session && (event==="SIGNED_IN" || event==="INITIAL_SESSION" || event==="TOKEN_REFRESHED")){
+  if(session && (event==="INITIAL_SESSION" || event==="TOKEN_REFRESHED")){
     if(enteredUserId!==session.user.id){enteredUserId=session.user.id;Promise.resolve().then(()=>enter(session.user))}
   }
   if(event==="SIGNED_OUT"){
