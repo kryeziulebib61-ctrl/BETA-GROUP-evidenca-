@@ -44,7 +44,7 @@ $("loginForm").addEventListener("submit",async e=>{
    if(!result.data?.user)throw new Error("Supabase ni vrnil uporabnika.");
    enteredUserId=result.data.user.id;
    msg("loginMessage","Prijava uspešna. Nalagam evidenco ...");
-   await enter(result.data.user);
+   await enterOnce(result.data.user);
  }catch(err){
    enteredUserId=null;
    show("appPanel",false);show("loginPanel",true);
@@ -330,19 +330,37 @@ $("allHours").addEventListener("click",async e=>{
  }
 });
 let enteredUserId=null;
-async function restoreSession(){
-  const {data,error}=await db.auth.getSession();
-  if(error){show("appPanel",false);show("loginPanel",true);msg("loginMessage","Seje ni mogoče obnoviti: "+error.message,true);return}
-  if(data.session){
-    if(enteredUserId!==data.session.user.id){enteredUserId=data.session.user.id;await enter(data.session.user)}
-  }else{show("appPanel",false);show("loginPanel",true)}
-}
-db.auth.onAuthStateChange((event,session)=>{
-  if(session && (event==="INITIAL_SESSION" || event==="TOKEN_REFRESHED")){
-    if(enteredUserId!==session.user.id){enteredUserId=session.user.id;Promise.resolve().then(()=>enter(session.user))}
+let enteringUserId=null;
+async function enterOnce(authUser){
+  if(!authUser) return;
+  if(enteredUserId===authUser.id && profile) return;
+  if(enteringUserId===authUser.id) return;
+  enteringUserId=authUser.id;
+  try {
+    await enter(authUser);
+    if(profile && user && user.id===authUser.id) enteredUserId=authUser.id;
+  } catch(err) {
+    show("appPanel",false);show("loginPanel",true);
+    msg("loginMessage","Aplikacije ni mogoče naložiti: "+(err?.message||"neznana napaka"),true);
+  } finally {
+    if(enteringUserId===authUser.id) enteringUserId=null;
   }
+}
+async function restoreSession(){
+  try {
+    const {data,error}=await db.auth.getSession();
+    if(error) throw error;
+    if(data.session) await enterOnce(data.session.user);
+    else {show("appPanel",false);show("loginPanel",true)}
+  } catch(err) {
+    show("appPanel",false);show("loginPanel",true);
+    msg("loginMessage","Seje ni mogoče obnoviti: "+(err?.message||"neznana napaka"),true);
+  }
+}
+// Login submit handles SIGNED_IN itself; auth events only handle sign-out to avoid entering twice.
+db.auth.onAuthStateChange((event)=>{
   if(event==="SIGNED_OUT"){
-    enteredUserId=null;user=profile=null;
+    enteredUserId=null;enteringUserId=null;user=profile=null;
     if(liveTimer)clearInterval(liveTimer);liveTimer=null;
     show("appPanel",false);show("loginPanel",true);
   }
