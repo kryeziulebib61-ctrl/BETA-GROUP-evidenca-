@@ -3,7 +3,7 @@ const $=id=>document.getElementById(id), url=window.BETA_SUPABASE_URL, key=windo
 const configured=url&&key&&!url.includes("PASTE_")&&!key.includes("PASTE_");
 const show=(id,yes)=>$(id).classList.toggle("hidden",!yes);
 const msg=(id,t,bad=false)=>{$(id).textContent=t;$(id).classList.toggle("error",bad)};
-let db,user,profile,exportRows=[],liveTimer=null,manualAdjustments=[];
+let db,user,profile,exportRows=[],liveTimer=null,manualAdjustments=[],historicalManualHours=[];
 // Keep the login form visible even if the Supabase library/configuration fails to load.
 show("loginPanel",true);
 if(!configured||!window.supabase){
@@ -245,7 +245,28 @@ $("addWorkerForm").addEventListener("submit",async e=>{e.preventDefault();const 
 $("backToAdminHome").addEventListener("click",()=>{show("adminWorkerDetailPage",false);show("adminHomePage",true);window.scrollTo({top:0,behavior:"auto"});});
 $("showAdminDailyTable").addEventListener("click",()=>{show("adminWorkerSummaryPage",false);show("adminWorkerTablePage",true);window.scrollTo({top:0,behavior:"auto"});});
 $("backToAdminWorkerSummary").addEventListener("click",()=>{show("adminWorkerTablePage",false);show("adminWorkerSummaryPage",true);window.scrollTo({top:0,behavior:"auto"});});
-async function renderSelectedAdminWorker(){const selected=adminMonth(),bounds=monthBounds(selected);const {data,error}=await db.from("work_hours").select("id,worker_id,event_type,event_time,latitude,longitude").gte("event_time",new Date(new Date(bounds.start).getTime()-36*60*60*1000).toISOString()).lt("event_time",bounds.end).order("event_time",{ascending:true}).limit(10000);if(error){msg("adminMessage","Podrobnosti delavca ni mogoče naložiti.",true);return}renderAdminWorkerDaily(data||[],$("adminWorkerPicker").value,new Date(bounds.start),new Date(bounds.end),new Date(),selected);$("adminDetailMonthText").textContent=`Mesec: ${selected}`;}
+async function renderSelectedAdminWorker(){
+ const selected=$("adminDetailMonthPicker")?.value||adminMonth();
+ const bounds=monthBounds(selected),workerId=$("adminWorkerPicker").value;
+ $("adminMonthPicker").value=selected;
+ const {data,error}=await db.from("work_hours").select("id,worker_id,event_type,event_time,latitude,longitude").gte("event_time",new Date(new Date(bounds.start).getTime()-36*60*60*1000).toISOString()).lt("event_time",bounds.end).order("event_time",{ascending:true}).limit(10000);
+ if(error){msg("adminMessage","Podrobnosti delavca ni mogoče naložiti.",true);return}
+ renderAdminWorkerDaily(data||[],workerId,new Date(bounds.start),new Date(bounds.end),new Date(),selected);
+ $("adminDetailMonthText").textContent=`Mesec: ${selected}`;
+ const selectedWorker=($("adminWorkerPicker").options[$("adminWorkerPicker").selectedIndex]?.textContent||"").replace(/\s*\(Administrator\)$/,"");
+ const {data:hist,error:histError}=await db.from("monthly_manual_hours").select("worker_name,work_month,regular_hours,overtime_hours,night_hours").eq("worker_name",selectedWorker).eq("work_month",selected+"-01").maybeSingle();
+ $("adminWorkerHistoricalRegular").textContent=histError?"—":`${Number(hist?.regular_hours||0).toLocaleString("sl-SI")} h`;
+ $("adminWorkerHistoricalOvertime").textContent=histError?"—":`${Number(hist?.overtime_hours||0).toLocaleString("sl-SI")} h`;
+ $("adminWorkerHistoricalNight").textContent=histError?"—":`${Number(hist?.night_hours||0).toLocaleString("sl-SI")} h`;
+ if(histError)msg("adminMessage","Dnevna evidenca je naložena, vendar historijskih ur ni mogoče prebrati. Preverite pravila dostopa v Supabase.",true);
+}
+$("adminDetailMonthPicker").addEventListener("change",async()=>{
+ const m=$("adminDetailMonthPicker").value;
+ if(!m)return;
+ $("adminMonthPicker").value=m;
+ await renderSelectedAdminWorker();
+});
+
 $("refreshButton").addEventListener("click",loadAdmin);
 $("adminMonthPicker").addEventListener("change",loadAdmin);
 $("adminWorkerPicker").addEventListener("change",()=>loadAdmin());
