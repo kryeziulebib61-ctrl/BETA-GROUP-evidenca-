@@ -158,7 +158,10 @@ function renderAdminWorkerDaily(all,workerId,monthStart,monthEnd,now,selected){
  const keys=Object.keys(daily).sort((a,b)=>b.localeCompare(a));
  const totalMs=keys.reduce((sum,k)=>sum+(daily[k].ms||0),0);
  const workedDays=keys.filter(k=>(daily[k].ms||0)>0).length;
- if(totalHours)totalHours.textContent=durationLabel(totalMs);
+ const selectedWorkerName=$("adminWorkerPicker").selectedOptions[0]?.textContent||"";
+ const historical=historicalManualHours.find(h=>String(h.worker_name||"").trim().toLocaleLowerCase()===selectedWorkerName.replace(/\s*\(Administrator\)$/,"").trim().toLocaleLowerCase()&&String(h.work_month||"").slice(0,7)===selected)||{};
+ const historicalMs=(Number(historical.regular_hours||0)+Number(historical.overtime_hours||0))*3600000;
+ if(totalHours)totalHours.textContent=durationLabel(totalMs+historicalMs);
  if(totalDays)totalDays.textContent=String(workedDays);
  body.innerHTML=keys.map(k=>{
    const d=daily[k],a=arrivals[k],b=departures[k],ar=arrivalRows[k],dr=departureRows[k];
@@ -200,7 +203,12 @@ async function loadAdmin(){
  const adjustmentMap=Object.fromEntries(manualAdjustments.map(a=>[a.worker_id,a]));
  const summary=workers.map(w=>{const events=(byWorker[w.id]||[]).slice().sort((a,b)=>new Date(a.event_time)-new Date(b.event_time));let open=null,total=0,night=0;const days=new Set();for(const r of events){const t=new Date(r.event_time);if(r.event_type==="arrival"){if(open===null)open=t}else if(r.event_type==="departure"&&open!==null){const rawStart=open,rawEnd=t,s=new Date(Math.max(rawStart.getTime(),monthStart.getTime())),e=new Date(Math.min(rawEnd.getTime(),monthEnd.getTime()));if(e>s){total+=e-s;night+=nightMilliseconds(s,e);let cur=new Date(s);while(cur<e){days.add(`${cur.getFullYear()}-${cur.getMonth()}-${cur.getDate()}`);cur=new Date(cur.getFullYear(),cur.getMonth(),cur.getDate()+1)}}open=null}}
   let ongoing=false;if(open!==null){const s=new Date(Math.max(open.getTime(),monthStart.getTime())),e=new Date(Math.min(now.getTime(),monthEnd.getTime()));if(e>s){total+=e-s;night+=nightMilliseconds(s,e);ongoing=true;let cur=new Date(s);while(cur<e){days.add(`${cur.getFullYear()}-${cur.getMonth()}-${cur.getDate()}`);cur=new Date(cur.getFullYear(),cur.getMonth(),cur.getDate()+1)}}}
-  const adjustment=adjustmentMap[w.id]||{};return {name:w.full_name,active:w.active,total,night,manualNight:Number(adjustment.night_hours||0),overtime:Number(adjustment.overtime_hours||0),days:days.size,ongoing};});
+  // Historical monthly entries have no daily timestamps, so include their hours in monthly totals only.
+  const historical=historicalManualHours.find(h=>String(h.worker_name||"").trim().toLocaleLowerCase()===String(w.full_name||"").trim().toLocaleLowerCase()&&String(h.work_month||"").slice(0,7)===selected)||{};
+  const historicalRegular=Number(historical.regular_hours||0),historicalOvertime=Number(historical.overtime_hours||0),historicalNight=Number(historical.night_hours||0);
+  const adjustment=adjustmentMap[w.id]||{};
+  total+=(historicalRegular+historicalOvertime)*3600000;
+  return {name:w.full_name,active:w.active,total,night,manualNight:Number(adjustment.night_hours||0)+historicalNight,overtime:Number(adjustment.overtime_hours||0)+historicalOvertime,days:days.size,ongoing};});
  const fmt=ms=>{const n=Math.max(0,Math.floor(ms/60000));return `${Math.floor(n/60)}:${String(n%60).padStart(2,"0")}`};
  $("adminMonthlyHours").innerHTML=summary.map((s,i)=>{const w=workers[i];return `<tr><td><button type="button" class="worker-open secondary" data-worker-id="${esc(w.id)}">${esc(s.name)} ↗</button></td><td>${s.days}</td><td><strong>${fmt(s.total)}</strong></td><td>${fmt(s.night)}</td><td>${s.manualNight.toLocaleString("sl-SI")} h</td><td>${s.overtime.toLocaleString("sl-SI")} h</td><td>${s.ongoing?"Delo še poteka":s.active?"Aktiven":"Neaktiven"}</td></tr>`}).join("")||'<tr><td colspan="7">Ni delavcev.</td></tr>';
  const workerPicker=$("adminWorkerPicker");
