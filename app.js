@@ -156,15 +156,19 @@ function renderAdminWorkerDaily(all,workerId,monthStart,monthEnd,now,selected){
    ?`<a href="https://www.google.com/maps?q=${encodeURIComponent(`${r.latitude},${r.longitude}`)}" target="_blank" rel="noopener noreferrer">${caption}</a>`
    :"—";
  const keys=Object.keys(daily).sort((a,b)=>b.localeCompare(a));
- const totalMs=keys.reduce((sum,k)=>sum+(daily[k].ms||0),0);
+ const computedTotalMs=keys.reduce((sum,k)=>sum+(daily[k].ms||0),0);
  const workedDays=keys.filter(k=>(daily[k].ms||0)>0).length;
+ const workerName=$("adminWorkerPicker")?.selectedOptions?.[0]?.textContent?.replace(/\s*\(Administrator\)$/,"").trim()||"";
+ const manualRow=historicalManualHours.find(r=>String(r.worker_name||"").trim().toLocaleLowerCase()===workerName.toLocaleLowerCase() && String(r.work_month||"").slice(0,7)===selected);
+ const manualMinutes=manualRow ? Math.round(Number(manualRow.regular_hours||0)*60) : 0;
+ const totalMs=(computedTotalMs===0 && manualRow) ? manualMinutes*60000 : computedTotalMs;
  if(totalHours)totalHours.textContent=durationLabel(totalMs);
  if(totalDays)totalDays.textContent=String(workedDays);
  body.innerHTML=keys.map(k=>{
    const d=daily[k],a=arrivals[k],b=departures[k],ar=arrivalRows[k],dr=departureRows[k];
    const maps=`<div class="daily-map-links">${mapLink(ar,"Prihod – Zemljevid ↗")}${mapLink(dr,"Odhod – Zemljevid ↗")}</div>`;
    return `<tr><td>${esc(new Date(`${k}T12:00:00`).toLocaleDateString("sl-SI"))}</td><td>${a?esc(new Date(a).toLocaleTimeString("sl-SI",{hour:"2-digit",minute:"2-digit"})):"—"}</td><td>${b?esc(new Date(b).toLocaleTimeString("sl-SI",{hour:"2-digit",minute:"2-digit"})):"—"}</td><td><strong>${durationLabel(d.ms)}</strong></td><td>${d.open?"Delo še poteka · ure se štejejo":d.ms>0?"Izračunano":"Nepopolna registracija"}</td><td>${maps}</td></tr>`;
- }).join("")||'<tr><td colspan="6">Za izbranega delavca v tem mesecu še ni zapisov.</td></tr>';
+ }).join("")||(manualRow?`<tr><td colspan="3">Ročno vnesene mesečne ure</td><td><strong>${durationLabel(manualMinutes*60000)}</strong></td><td>Iz mesečnega vnosa</td><td>—</td></tr>`:'<tr><td colspan="6">Za izbranega delavca v tem mesecu še ni zapisov.</td></tr>');
 }
 async function loadAdmin(){
  const selected=adminMonth(),bounds=monthBounds(selected),from=new Date(new Date(bounds.start).getTime()-36*60*60*1000).toISOString();
@@ -200,7 +204,7 @@ async function loadAdmin(){
  const adjustmentMap=Object.fromEntries(manualAdjustments.map(a=>[a.worker_id,a]));
  const summary=workers.map(w=>{const events=(byWorker[w.id]||[]).slice().sort((a,b)=>new Date(a.event_time)-new Date(b.event_time));let open=null,total=0,night=0;const days=new Set();for(const r of events){const t=new Date(r.event_time);if(r.event_type==="arrival"){if(open===null)open=t}else if(r.event_type==="departure"&&open!==null){const rawStart=open,rawEnd=t,s=new Date(Math.max(rawStart.getTime(),monthStart.getTime())),e=new Date(Math.min(rawEnd.getTime(),monthEnd.getTime()));if(e>s){total+=e-s;night+=nightMilliseconds(s,e);let cur=new Date(s);while(cur<e){days.add(`${cur.getFullYear()}-${cur.getMonth()}-${cur.getDate()}`);cur=new Date(cur.getFullYear(),cur.getMonth(),cur.getDate()+1)}}open=null}}
   let ongoing=false;if(open!==null){const s=new Date(Math.max(open.getTime(),monthStart.getTime())),e=new Date(Math.min(now.getTime(),monthEnd.getTime()));if(e>s){total+=e-s;night+=nightMilliseconds(s,e);ongoing=true;let cur=new Date(s);while(cur<e){days.add(`${cur.getFullYear()}-${cur.getMonth()}-${cur.getDate()}`);cur=new Date(cur.getFullYear(),cur.getMonth(),cur.getDate()+1)}}}
-  const adjustment=adjustmentMap[w.id]||{};return {name:w.full_name,active:w.active,total,night,manualNight:Number(adjustment.night_hours||0),overtime:Number(adjustment.overtime_hours||0),days:days.size,ongoing};});
+  const adjustment=adjustmentMap[w.id]||{};const manual=historicalManualHours.find(r=>String(r.worker_name||"").trim().toLocaleLowerCase()===String(w.full_name||"").trim().toLocaleLowerCase()&&String(r.work_month||"").slice(0,7)===selected);if(total===0&&manual)total=Number(manual.regular_hours||0)*3600000;return {name:w.full_name,active:w.active,total,night,manualNight:Number(adjustment.night_hours||manual?.night_hours||0),overtime:Number(adjustment.overtime_hours||manual?.overtime_hours||0),days:days.size,ongoing};});
  const fmt=ms=>{const n=Math.max(0,Math.floor(ms/60000));return `${Math.floor(n/60)}:${String(n%60).padStart(2,"0")}`};
  $("adminMonthlyHours").innerHTML=summary.map((s,i)=>{const w=workers[i];return `<tr><td><button type="button" class="worker-open secondary" data-worker-id="${esc(w.id)}">${esc(s.name)} ↗</button></td><td>${s.days}</td><td><strong>${fmt(s.total)}</strong></td><td>${fmt(s.night)}</td><td>${s.manualNight.toLocaleString("sl-SI")} h</td><td>${s.overtime.toLocaleString("sl-SI")} h</td><td>${s.ongoing?"Delo še poteka":s.active?"Aktiven":"Neaktiven"}</td></tr>`}).join("")||'<tr><td colspan="7">Ni delavcev.</td></tr>';
  const workerPicker=$("adminWorkerPicker");
@@ -281,10 +285,10 @@ $("printButton").addEventListener("click",()=>{
  const table=document.querySelector("#adminPanel #adminHomePage .table-panel:last-of-type table");
  const summary=document.querySelector("#adminMonthlyHours")?.closest("table");
  const workerRows=summary?summary.outerHTML:"";
- const logRows=table?table.outerHTML:"";
+ const logRows=table?table.outerHTML:""; const historicalTable=document.querySelector("#historicalHoursRows")?.closest("table"); const historicalRows=historicalTable?`<h2>Zgodovinske mesečne ure</h2>${historicalTable.outerHTML}`:"";
  const w=window.open("","_blank");
  if(!w){msg("adminMessage","Dovolite odpiranje novega okna, nato poskusite znova.",true);return}
- w.document.write(`<!doctype html><html lang="sl"><head><meta charset="utf-8"><title>BETA GROUP – poročilo ${esc(adminMonth())}</title><style>body{font:12px Arial,sans-serif;color:#18263b;padding:24px}h1,h2{color:#203a63}table{border-collapse:collapse;width:100%;margin:12px 0 28px}th,td{border:1px solid #ccd5e2;padding:7px;text-align:left}th{background:#edf2fa}button{padding:10px 14px;margin-bottom:16px}@media print{button{display:none}body{padding:0}tr{break-inside:avoid}}</style></head><body><button onclick="window.print()">Natisni / Shrani kot PDF</button><h1>BETA GROUP – Evidenca delovnih ur</h1><p>Mesec: ${esc(adminMonth())}</p><h2>Mesečni povzetek ekipe</h2>${workerRows}<h2>Registracije</h2>${logRows}<script>document.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>window.print()))<\/script></body></html>`);
+ w.document.write(`<!doctype html><html lang="sl"><head><meta charset="utf-8"><title>BETA GROUP – poročilo ${esc(adminMonth())}</title><style>body{font:12px Arial,sans-serif;color:#18263b;padding:24px}h1,h2{color:#203a63}table{border-collapse:collapse;width:100%;margin:12px 0 28px}th,td{border:1px solid #ccd5e2;padding:7px;text-align:left}th{background:#edf2fa}button{padding:10px 14px;margin-bottom:16px}@media print{button{display:none}body{padding:0}tr{break-inside:avoid}}</style></head><body><button onclick="window.print()">Natisni / Shrani kot PDF</button><h1>BETA GROUP – Evidenca delovnih ur</h1><p>Mesec: ${esc(adminMonth())}</p><h2>Mesečni povzetek ekipe</h2>${workerRows}${historicalRows}<h2>Registracije</h2>${logRows}<script>document.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>window.print()))<\/script></body></html>`);
  w.document.close();
 });
 $("allHours").addEventListener("click",async e=>{
