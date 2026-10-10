@@ -99,7 +99,7 @@ async function loadMine(){
    return {key,firstArrival:arrivals[key]||null,lastDeparture:last,ms,open:!!hasOpen[key]};
  });
  totalMs+=legacy.regular*3600000;
- $("monthTotal").textContent=durationLabel(totalMs);$("monthDays").textContent=String(workedDays);$("monthEvents").textContent=String(allRows.filter(r=>new Date(r.event_time)>=monthStart&&new Date(r.event_time)<monthEnd).length);
+ $("monthTotal").textContent=durationLabel(totalMs+Number(legacy.regular||0)*3600000);$("monthDays").textContent=String(workedDays);$("monthEvents").textContent=String(allRows.filter(r=>new Date(r.event_time)>=monthStart&&new Date(r.event_time)<monthEnd).length);
  $("monthlyHours").innerHTML=daily.map(d=>`<tr><td>${esc(new Date(`${d.key}T12:00:00`).toLocaleDateString("sl-SI"))}</td><td>${d.firstArrival?esc(new Date(d.firstArrival).toLocaleTimeString("sl-SI",{hour:"2-digit",minute:"2-digit"})):"—"}</td><td>${d.lastDeparture?esc(new Date(d.lastDeparture).toLocaleTimeString("sl-SI",{hour:"2-digit",minute:"2-digit"})):"—"}</td><td><strong>${durationLabel(d.ms)}</strong></td><td>${d.open?"Delo še poteka · ure se samodejno štejejo":d.ms>0?"Zaključeno":"Brez para prihod/odhod"}</td></tr>`).join("")||'<tr><td colspan="5">Za ta mesec še ni zapisov.</td></tr>';
  const rows=allRows.filter(r=>new Date(r.event_time)>=monthStart&&new Date(r.event_time)<monthEnd);
  $("myHours").innerHTML=rows.slice().sort((a,b)=>new Date(b.event_time)-new Date(a.event_time)).map(r=>`<tr><td>${esc(date(r.event_time))}</td><td>${esc(label(r.event_type))}</td><td>${esc(gps(r))}</td></tr>`).join("")||'<tr><td colspan="3">Za ta mesec še ni zapisov.</td></tr>';
@@ -158,15 +158,15 @@ async function loadAdmin(){
   db.from("work_hours").select("id,worker_id,event_type,event_time,latitude,longitude").gte("event_time",from).lt("event_time",bounds.end).order("event_time",{ascending:true}).limit(10000),
   db.from("work_absences").select("id,worker_id,absence_type,start_date,end_date,note").lte("start_date",selected+"-"+String(new Date(new Date(bounds.end).getTime()-86400000).getDate()).padStart(2,"0")).gte("end_date",selected+"-01").order("start_date",{ascending:false}),
   db.from("work_hour_adjustments").select("id,worker_id,month,night_hours,overtime_hours,note").eq("month",selected),
-  db.from("monthly_manual_hours").select("id,worker_name,work_month,regular_hours,overtime_hours,night_hours,entry_type,created_at").eq("work_month",selected+"-01").order("worker_name")
+  db.from("monthly_manual_hours").select("worker_name,work_month,regular_hours,overtime_hours,night_hours").eq("work_month",selected+"-01")
  ]);
  if(wr.error||hr.error){msg("adminMessage","Podatkov ni mogoče naložiti. Preverite pravila dostopa.",true);return}
  const workers=wr.data||[],map=Object.fromEntries(workers.map(w=>[w.id,w])),all=hr.data||[],monthStart=new Date(bounds.start),monthEnd=new Date(bounds.end),now=new Date();
  const absences=ar.error?[]:(ar.data||[]);
  manualAdjustments=adj.error?[]:(adj.data||[]);
- const historicalManualHours=hist.error?[]:(hist.data||[]);
- const historicalByName={};
- for(const h of historicalManualHours){const k=String(h.worker_name||"").trim().toLocaleLowerCase();if(!historicalByName[k])historicalByName[k]={regular:0,overtime:0,night:0};historicalByName[k].regular+=Number(h.regular_hours||0);historicalByName[k].overtime+=Number(h.overtime_hours||0);historicalByName[k].night+=Number(h.night_hours||0);}
+ const legacyByName={};
+ for(const h of (hist.data||[])){const k=String(h.worker_name||"").trim().toLocaleLowerCase();if(!legacyByName[k])legacyByName[k]={regular:0,overtime:0,night:0};legacyByName[k].regular+=Number(h.regular_hours||0);legacyByName[k].overtime+=Number(h.overtime_hours||0);legacyByName[k].night+=Number(h.night_hours||0);}
+ if(hist.error){msg("historicalHoursMessage","Zgodovinskih ur ni mogoče naložiti iz monthly_manual_hours.",true)}
  if(adj.error){msg("manualHoursMessage","Za ročni vnos ur najprej zaženite FAZA-3-SUPABASE.sql v Supabase SQL Editor.",true)}
  if(ar.error){msg("absenceMessage","Najprej zaženite SQL datoteko FAZA-2-SUPABASE.sql v Supabase SQL Editor.",true)}else{msg("absenceMessage","")}
  const absenceWorker=$("absenceWorker");const oldAbsenceWorker=absenceWorker.value;absenceWorker.innerHTML='<option value="">Izberite delavca</option>'+workers.filter(w=>!w.is_admin).map(w=>`<option value="${esc(w.id)}">${esc(w.full_name)}</option>`).join("");if(oldAbsenceWorker&&workers.some(w=>w.id===oldAbsenceWorker))absenceWorker.value=oldAbsenceWorker;
@@ -179,9 +179,9 @@ async function loadAdmin(){
  const adjustmentMap=Object.fromEntries(manualAdjustments.map(a=>[a.worker_id,a]));
  const summary=workers.map(w=>{const events=(byWorker[w.id]||[]).slice().sort((a,b)=>new Date(a.event_time)-new Date(b.event_time));let open=null,total=0,night=0;const days=new Set();for(const r of events){const t=new Date(r.event_time);if(r.event_type==="arrival"){if(open===null)open=t}else if(r.event_type==="departure"&&open!==null){const rawStart=open,rawEnd=t,s=new Date(Math.max(rawStart.getTime(),monthStart.getTime())),e=new Date(Math.min(rawEnd.getTime(),monthEnd.getTime()));if(e>s){total+=e-s;night+=nightMilliseconds(s,e);let cur=new Date(s);while(cur<e){days.add(`${cur.getFullYear()}-${cur.getMonth()}-${cur.getDate()}`);cur=new Date(cur.getFullYear(),cur.getMonth(),cur.getDate()+1)}}open=null}}
   let ongoing=false;if(open!==null){const s=new Date(Math.max(open.getTime(),monthStart.getTime())),e=new Date(Math.min(now.getTime(),monthEnd.getTime()));if(e>s){total+=e-s;night+=nightMilliseconds(s,e);ongoing=true;let cur=new Date(s);while(cur<e){days.add(`${cur.getFullYear()}-${cur.getMonth()}-${cur.getDate()}`);cur=new Date(cur.getFullYear(),cur.getMonth(),cur.getDate()+1)}}}
-  const adjustment=adjustmentMap[w.id]||{},legacy=historicalByName[String(w.full_name||"").trim().toLocaleLowerCase()]||{};return {name:w.full_name,active:w.active,total,night,manualNight:Number(adjustment.night_hours||legacy.night||0),overtime:Number(adjustment.overtime_hours||legacy.overtime||0),historicalRegular:Number(legacy.regular||0),days:days.size,ongoing};});
- const fmt=ms=>{ms=Number(ms);if(!Number.isFinite(ms))ms=0;const n=Math.max(0,Math.floor(ms/60000));return `${Math.floor(n/60)}:${String(n%60).padStart(2,"0")}`};
- $("adminMonthlyHours").innerHTML=summary.map((s,i)=>{const w=workers[i];return `<tr><td><button type="button" class="worker-open secondary" data-worker-id="${esc(w.id)}">${esc(s.name)} ↗</button></td><td>${s.days}</td><td><strong>${fmt(s.total+Number(s.historicalRegular||0)*3600000)}</strong></td><td>${fmt(s.night)}</td><td>${s.manualNight.toLocaleString("sl-SI")} h</td><td>${s.overtime.toLocaleString("sl-SI")} h</td><td>${s.ongoing?"Delo še poteka":s.active?"Aktiven":"Neaktiven"}</td></tr>`}).join("")||'<tr><td colspan="7">Ni delavcev.</td></tr>';
+  const adjustment=adjustmentMap[w.id]||{},legacy=legacyByName[String(w.full_name||"").trim().toLocaleLowerCase()]||{};return {name:w.full_name,active:w.active,total,night,manualNight:Number(adjustment.night_hours??legacy.night??0),overtime:Number(adjustment.overtime_hours??legacy.overtime??0),historicalRegular:Number(legacy.regular||0),days:days.size,ongoing};});
+ const fmt=ms=>{const value=Number(ms);if(!Number.isFinite(value)||value<=0)return "0:00";const n=Math.floor(value/60000);return `${Math.floor(n/60)}:${String(n%60).padStart(2,"0")}`};
+ $("adminMonthlyHours").innerHTML=summary.map((s,i)=>{const w=workers[i];return `<tr><td><button type="button" class="worker-open secondary" data-worker-id="${esc(w.id)}">${esc(s.name)} ↗</button></td><td>${s.days}</td><td><strong>${fmt(Number(s.total||0)+Number(s.historicalRegular||0)*3600000)}</strong></td><td>${fmt(s.night)}</td><td>${s.manualNight.toLocaleString("sl-SI")} h</td><td>${s.overtime.toLocaleString("sl-SI")} h</td><td>${s.ongoing?"Delo še poteka":s.active?"Aktiven":"Neaktiven"}</td></tr>`}).join("")||'<tr><td colspan="7">Ni delavcev.</td></tr>';
  const workerPicker=$("adminWorkerPicker");
  const previousWorker=workerPicker.value;
  workerPicker.innerHTML='<option value="">Izberite delavca</option>'+workers.map(w=>`<option value="${esc(w.id)}">${esc(w.full_name)}${w.is_admin?" (Administrator)":""}</option>`).join("");
