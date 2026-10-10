@@ -3,7 +3,7 @@ const $=id=>document.getElementById(id), url=window.BETA_SUPABASE_URL, key=windo
 const configured=url&&key&&!url.includes("PASTE_")&&!key.includes("PASTE_");
 const show=(id,yes)=>$(id).classList.toggle("hidden",!yes);
 const msg=(id,t,bad=false)=>{$(id).textContent=t;$(id).classList.toggle("error",bad)};
-let db,user,profile,exportRows=[],liveTimer=null,manualAdjustments=[],historicalManualHours=[];
+let db,user,profile,enteredUserId=null,exportRows=[],liveTimer=null,manualAdjustments=[],historicalManualHours=[],loginInProgress=false,enterPromise=null;
 // Keep the login form visible even if the Supabase library/configuration fails to load.
 show("loginPanel",true);
 if(!configured||!window.supabase){
@@ -24,32 +24,35 @@ const toLocalInput=v=>{const d=new Date(v);return `${d.getFullYear()}-${String(d
 const label=v=>v==="arrival"?"Prihod na delo":v==="departure"?"Odhod z dela":v;
 const gps=r=>r.latitude!=null&&r.longitude!=null?`${Number(r.latitude).toFixed(5)}, ${Number(r.longitude).toFixed(5)}`:"Ni podatka";
 async function enter(u){
+ if(enterPromise) return enterPromise;
+ enterPromise=(async()=>{
  user=u; const {data:p,error}=await db.from("workers").select("id,full_name,is_admin,active").eq("id",u.id).maybeSingle();
  if(error||!p||!p.active){await db.auth.signOut();show("loginPanel",true);msg("loginMessage","Uporabnik nima aktivnega profila. Obrnite se na administratorja.",true);return}
  profile=p;show("loginPanel",false);show("appPanel",true);show("adminPanel",!!p.is_admin);show("workerPanel",true);show("workerHomePage",true);show("workerEvidencePage",false);document.querySelector(".welcome").classList.toggle("hidden",!p.is_admin);if(liveTimer)clearInterval(liveTimer);liveTimer=setInterval(()=>{if(user)loadMine()},60000);
  $("userEmail").textContent=u.email||p.full_name;$("userRole").textContent=p.is_admin?"Administrator":"Delavec";
  if(p.is_admin){await Promise.all([loadAdmin(),loadMine()])}else{await loadMine()}
+ })();
+ try{return await enterPromise}finally{enterPromise=null}
 }
 $("loginForm").addEventListener("submit",async e=>{
  e.preventDefault();
- const btn=$("loginForm").querySelector('button[type="submit"]');
- if(btn)btn.disabled=true;
- msg("loginMessage","Prijava ...");
+ const form=e.currentTarget,button=form.querySelector('button[type="submit"]');
+ button.disabled=true;msg("loginMessage","Prijava ...");
  try{
    const result=await Promise.race([
      db.auth.signInWithPassword({email:$("email").value.trim(),password:$("password").value}),
-     new Promise((_,reject)=>setTimeout(()=>reject(new Error("Prijava traja predolgo. Preverite internetno povezavo in poskusite znova.")),15000))
+     new Promise((_,reject)=>setTimeout(()=>reject(new Error("Prijava traja predolgo. Preverite internetno povezavo in poskusite znova.")),20000))
    ]);
    if(result.error)throw result.error;
-   if(!result.data?.user)throw new Error("Supabase ni vrnil uporabnika.");
+   if(!result.data?.user)throw new Error("Supabase ni vrnil uporabnika. Poskusite znova.");
    enteredUserId=result.data.user.id;
-   msg("loginMessage","Prijava uspešna. Nalagam evidenco ...");
-   await enterOnce(result.data.user);
+   try{await enter(result.data.user)}catch(appError){
+     show("appPanel",false);show("loginPanel",true);
+     msg("loginMessage","Prijava je uspela, vendar se podatki aplikacije niso naložili: "+(appError?.message||"neznana napaka"),true);
+   }
  }catch(err){
-   enteredUserId=null;
-   show("appPanel",false);show("loginPanel",true);
    msg("loginMessage",err?.message||"Prijava ni uspela. Preverite povezavo, e-pošto in geslo.",true);
- }finally{if(btn)btn.disabled=false}
+ }finally{button.disabled=false;loginInProgress=false}
 });
 $("logoutButton").addEventListener("click",async()=>{await db.auth.signOut();enteredUserId=null;user=profile=null;if(liveTimer)clearInterval(liveTimer);liveTimer=null;show("appPanel",false);show("loginPanel",true);$("password").value=""});
 function locationNow(){return new Promise((resolve,reject)=>{if(!navigator.geolocation)return reject(new Error("GPS ni podprt."));navigator.geolocation.getCurrentPosition(p=>resolve({latitude:p.coords.latitude,longitude:p.coords.longitude}),()=>reject(new Error("Dovolite dostop do lokacije in poskusite znova.")),{enableHighAccuracy:true,timeout:15000,maximumAge:0})})}
@@ -180,7 +183,7 @@ async function loadAdmin(){
  historicalManualHours=hist.error?[]:(hist.data||[]);
  if(hist.error){msg("historicalHoursMessage","Zgodovinskih ur ni mogoče naložiti. Preverite tabelo monthly_manual_hours in pravila dostopa v Supabase.",true)}
  if(adj.error){msg("manualHoursMessage","Za ročni vnos ur najprej zaženite FAZA-3-SUPABASE.sql v Supabase SQL Editor.",true)}
- if(ar.error){msg("absenceMessage","Odsotnosti ni mogoče naložiti: "+ar.error.message,true)}else{msg("absenceMessage","")}
+ if(ar.error){msg("absenceMessage","Najprej zaženite SQL datoteko FAZA-2-SUPABASE.sql v Supabase SQL Editor.",true)}else{msg("absenceMessage","")}
  const absenceWorker=$("absenceWorker");const oldAbsenceWorker=absenceWorker.value;absenceWorker.innerHTML='<option value="">Izberite delavca</option>'+workers.filter(w=>!w.is_admin).map(w=>`<option value="${esc(w.id)}">${esc(w.full_name)}</option>`).join("");if(oldAbsenceWorker&&workers.some(w=>w.id===oldAbsenceWorker))absenceWorker.value=oldAbsenceWorker;
  const manualPicker=$("manualHoursWorker"),oldManualWorker=manualPicker.value;manualPicker.innerHTML='<option value="">Izberite delavca</option>'+workers.filter(w=>!w.is_admin).map(w=>`<option value="${esc(w.id)}">${esc(w.full_name)}</option>`).join("");if(oldManualWorker&&workers.some(w=>w.id===oldManualWorker))manualPicker.value=oldManualWorker;else if(workers.some(w=>!w.is_admin))manualPicker.value=workers.find(w=>!w.is_admin).id;
  $("manualHoursMonth").value=selected;
@@ -190,14 +193,14 @@ async function loadAdmin(){
  else if(workers.some(w=>!w.is_admin))historicalPicker.value=workers.find(w=>!w.is_admin).id;
  $("historicalMonth").value=selected;
  renderHistoricalHours();
- const monthAbsences=absences.filter(a=>a.start_date<=selected+"-"+String(new Date(new Date(bounds.end).getTime()-86400000).getDate()).padStart(2,"0")&&a.end_date>=selected+"-01");
+ const monthAbsences=absences.filter(a=>a.start_date<selected+"-"+String(new Date(new Date(bounds.end).getTime()-86400000).getDate()).padStart(2,"0")&&a.end_date>=selected+"-01");
  $("absenceRows").innerHTML=monthAbsences.map(a=>`<tr><td>${esc(map[a.worker_id]?.full_name||a.worker_id)}</td><td>${esc(absenceLabels[a.absence_type]||a.absence_type)}</td><td>${esc(a.start_date)}</td><td>${esc(a.end_date)}</td><td>${esc(a.note||"—")}</td><td><button type="button" class="danger absence-delete" data-absence-id="${esc(a.id)}">Izbriši</button></td></tr>`).join("")||'<tr><td colspan="6">Za izbrani mesec ni odsotnosti.</td></tr>';
  $("workersTable").innerHTML=workers.map(w=>`<tr><td>${esc(w.full_name)}</td><td>${esc(w.id)}</td><td>${w.active?"Aktiven":"Neaktiven"}${w.is_admin?" · Administrator":""}</td></tr>`).join("")||'<tr><td colspan="3">Ni delavcev.</td></tr>';
  const byWorker={};for(const r of all){if(!byWorker[r.worker_id])byWorker[r.worker_id]=[];byWorker[r.worker_id].push(r)}
  const adjustmentMap=Object.fromEntries(manualAdjustments.map(a=>[a.worker_id,a]));
  const summary=workers.map(w=>{const events=(byWorker[w.id]||[]).slice().sort((a,b)=>new Date(a.event_time)-new Date(b.event_time));let open=null,total=0,night=0;const days=new Set();for(const r of events){const t=new Date(r.event_time);if(r.event_type==="arrival"){if(open===null)open=t}else if(r.event_type==="departure"&&open!==null){const rawStart=open,rawEnd=t,s=new Date(Math.max(rawStart.getTime(),monthStart.getTime())),e=new Date(Math.min(rawEnd.getTime(),monthEnd.getTime()));if(e>s){total+=e-s;night+=nightMilliseconds(s,e);let cur=new Date(s);while(cur<e){days.add(`${cur.getFullYear()}-${cur.getMonth()}-${cur.getDate()}`);cur=new Date(cur.getFullYear(),cur.getMonth(),cur.getDate()+1)}}open=null}}
   let ongoing=false;if(open!==null){const s=new Date(Math.max(open.getTime(),monthStart.getTime())),e=new Date(Math.min(now.getTime(),monthEnd.getTime()));if(e>s){total+=e-s;night+=nightMilliseconds(s,e);ongoing=true;let cur=new Date(s);while(cur<e){days.add(`${cur.getFullYear()}-${cur.getMonth()}-${cur.getDate()}`);cur=new Date(cur.getFullYear(),cur.getMonth(),cur.getDate()+1)}}}
-  const adjustment=adjustmentMap[w.id]||{};const historical=historicalManualHours.find(r=>r.worker_name===w.full_name&&String(r.work_month||"").slice(0,10)===selected+"-01");if(total===0&&historical){total=(Number(historical.regular_hours||0)+Number(historical.overtime_hours||0))*3600000;night=Number(historical.night_hours||0)*3600000;}return {name:w.full_name,active:w.active,total,night,manualNight:Number(adjustment.night_hours||0),overtime:Number(adjustment.overtime_hours||0),days:days.size,ongoing};});
+  const adjustment=adjustmentMap[w.id]||{};return {name:w.full_name,active:w.active,total,night,manualNight:Number(adjustment.night_hours||0),overtime:Number(adjustment.overtime_hours||0),days:days.size,ongoing};});
  const fmt=ms=>{const n=Math.max(0,Math.floor(ms/60000));return `${Math.floor(n/60)}:${String(n%60).padStart(2,"0")}`};
  $("adminMonthlyHours").innerHTML=summary.map((s,i)=>{const w=workers[i];return `<tr><td><button type="button" class="worker-open secondary" data-worker-id="${esc(w.id)}">${esc(s.name)} ↗</button></td><td>${s.days}</td><td><strong>${fmt(s.total)}</strong></td><td>${fmt(s.night)}</td><td>${s.manualNight.toLocaleString("sl-SI")} h</td><td>${s.overtime.toLocaleString("sl-SI")} h</td><td>${s.ongoing?"Delo še poteka":s.active?"Aktiven":"Neaktiven"}</td></tr>`}).join("")||'<tr><td colspan="7">Ni delavcev.</td></tr>';
  const workerPicker=$("adminWorkerPicker");
@@ -250,7 +253,7 @@ $("manualHoursWorker").addEventListener("change",loadManualAdjustmentForm);$("ma
 $("manualHoursForm").addEventListener("submit",async e=>{e.preventDefault();if(!profile?.is_admin){msg("manualHoursMessage","Samo administrator lahko shrani ročne ure.",true);return}const workerId=$("manualHoursWorker").value,month=$("manualHoursMonth").value,night=Number($("manualNightHours").value),overtime=Number($("manualOvertimeHours").value),note=$("manualHoursNote").value.trim(),button=$("manualHoursForm").querySelector('button[type="submit"]');if(!workerId||!month||!Number.isFinite(night)||!Number.isFinite(overtime)||night<0||overtime<0){msg("manualHoursMessage","Preverite delavca, mesec in ure.",true);return}const payload={worker_id:workerId,month,night_hours:night,overtime_hours:overtime,note:note||null,created_by:user.id,updated_at:new Date().toISOString()};button.disabled=true;msg("manualHoursMessage","Shranjevanje ur ...");try{const {data,error}=await db.from("work_hour_adjustments").upsert(payload,{onConflict:"worker_id,month"}).select("id,worker_id,month,night_hours,overtime_hours,note").single();if(error)throw error;if(!data)throw new Error("Supabase ni potrdil shranjevanja.");manualAdjustments=manualAdjustments.filter(a=>!(a.worker_id===workerId&&a.month===month)).concat(data);msg("manualHoursMessage","Ročne nočne ure in nadure so shranjene.");await loadAdmin();loadManualAdjustmentForm();msg("manualHoursMessage","Ročne nočne ure in nadure so shranjene.");}catch(err){msg("manualHoursMessage","Shranjevanje ni uspelo: "+(err?.message||"neznana napaka")+". Preverite FAZA-3-SUPABASE.sql.",true)}finally{button.disabled=false}});
 $("clearManualHours").addEventListener("click",async()=>{if(!profile?.is_admin)return;const workerId=$("manualHoursWorker").value,month=$("manualHoursMonth").value;if(!workerId||!month){msg("manualHoursMessage","Izberite delavca in mesec.",true);return}if(!confirm("Ali želite izbrisati ročni vnos ur za tega delavca in mesec?"))return;const {error}=await db.from("work_hour_adjustments").delete().eq("worker_id",workerId).eq("month",month);if(error){msg("manualHoursMessage","Brisanje ni uspelo: "+error.message,true);return}msg("manualHoursMessage","Ročni vnos je izbrisan.");await loadAdmin();loadManualAdjustmentForm()});
 
-$("absenceForm").addEventListener("submit",async e=>{e.preventDefault();if(!profile?.is_admin)return;const workerId=$("absenceWorker").value,type=$("absenceType").value,start=$("absenceStart").value,end=$("absenceEnd").value,note=$("absenceNote").value.trim();if(!workerId){msg("absenceMessage","Izberite delavca.",true);return}if(!start||!end||end<start){msg("absenceMessage","Datum konca mora biti enak ali poznejši od začetka.",true);return}const dbAbsenceType=({holiday:"Praznik",vacation:"Dopust",sickness:"Bolniška"})[type]||type;const {error}=await db.from("work_absences").insert({worker_id:workerId,absence_type:dbAbsenceType,start_date:start,end_date:end,note:note||null,created_by:user.id});if(error){msg("absenceMessage","Shranjevanje ni uspelo: "+error.message,true);return}$("absenceNote").value="";msg("absenceMessage","Odsotnost je shranjena.");await loadAdmin()});
+$("absenceForm").addEventListener("submit",async e=>{e.preventDefault();if(!profile?.is_admin)return;const workerId=$("absenceWorker").value,type=$("absenceType").value,start=$("absenceStart").value,end=$("absenceEnd").value,note=$("absenceNote").value.trim();if(!workerId){msg("absenceMessage","Izberite delavca.",true);return}if(!start||!end||end<start){msg("absenceMessage","Datum konca mora biti enak ali poznejši od začetka.",true);return}const {error}=await db.from("work_absences").insert({worker_id:workerId,absence_type:type,start_date:start,end_date:end,note:note||null,created_by:user.id});if(error){msg("absenceMessage","Shranjevanje ni uspelo: "+error.message,true);return}$("absenceNote").value="";msg("absenceMessage","Odsotnost je shranjena.");await loadAdmin()});
 $("absenceRows").addEventListener("click",async e=>{const b=e.target.closest("[data-absence-id]");if(!b||!profile?.is_admin)return;if(!confirm("Ali res želite izbrisati to odsotnost?"))return;const {error}=await db.from("work_absences").delete().eq("id",b.dataset.absenceId);if(error){msg("absenceMessage","Brisanje ni uspelo: "+error.message,true);return}msg("absenceMessage","Odsotnost je izbrisana.");await loadAdmin()});
 $("addWorkerForm").addEventListener("submit",async e=>{e.preventDefault();const name=$("workerName").value.trim(),id=$("workerUid").value.trim();const btn=$("addWorkerButton");btn.disabled=true;msg("addWorkerMessage","Shranjevanje profila ...");try{const {error}=await db.from("workers").insert({id,full_name:name,is_admin:false,active:true});if(error)throw error;$("workerName").value="";$("workerUid").value="";msg("addWorkerMessage","Profil delavca je dodan. Delavec se lahko prijavi z računom, ki ste ga ustvarili v Supabase Auth.");await loadAdmin()}catch(e){msg("addWorkerMessage",e.message||"Profila ni bilo mogoče dodati. Preverite User UID in pravila dostopa.",true)}finally{btn.disabled=false}});
  $("adminMonthlyHours").addEventListener("click",async e=>{
@@ -265,28 +268,7 @@ $("addWorkerForm").addEventListener("submit",async e=>{e.preventDefault();const 
 $("backToAdminHome").addEventListener("click",()=>{show("adminWorkerDetailPage",false);show("adminHomePage",true);window.scrollTo({top:0,behavior:"auto"});});
 $("showAdminDailyTable").addEventListener("click",()=>{show("adminWorkerSummaryPage",false);show("adminWorkerTablePage",true);window.scrollTo({top:0,behavior:"auto"});});
 $("backToAdminWorkerSummary").addEventListener("click",()=>{show("adminWorkerTablePage",false);show("adminWorkerSummaryPage",true);window.scrollTo({top:0,behavior:"auto"});});
-async function renderSelectedAdminWorker(){
- const selected=$("adminDetailMonthPicker")?.value||adminMonth();
- const bounds=monthBounds(selected),workerId=$("adminWorkerPicker").value;
- $("adminMonthPicker").value=selected;
- const {data,error}=await db.from("work_hours").select("id,worker_id,event_type,event_time,latitude,longitude").gte("event_time",new Date(new Date(bounds.start).getTime()-36*60*60*1000).toISOString()).lt("event_time",bounds.end).order("event_time",{ascending:true}).limit(10000);
- if(error){msg("adminMessage","Podrobnosti delavca ni mogoče naložiti.",true);return}
- renderAdminWorkerDaily(data||[],workerId,new Date(bounds.start),new Date(bounds.end),new Date(),selected);
- $("adminDetailMonthText").textContent=`Mesec: ${selected}`;
- const selectedWorker=($("adminWorkerPicker").options[$("adminWorkerPicker").selectedIndex]?.textContent||"").replace(/\s*\(Administrator\)$/,"");
- const {data:hist,error:histError}=await db.from("monthly_manual_hours").select("worker_name,work_month,regular_hours,overtime_hours,night_hours").eq("worker_name",selectedWorker).eq("work_month",selected+"-01").maybeSingle();
- $("adminWorkerHistoricalRegular").textContent=histError?"—":`${Number(hist?.regular_hours||0).toLocaleString("sl-SI")} h`;
- $("adminWorkerHistoricalOvertime").textContent=histError?"—":`${Number(hist?.overtime_hours||0).toLocaleString("sl-SI")} h`;
- $("adminWorkerHistoricalNight").textContent=histError?"—":`${Number(hist?.night_hours||0).toLocaleString("sl-SI")} h`;
- if(histError)msg("adminMessage","Dnevna evidenca je naložena, vendar historijskih ur ni mogoče prebrati: "+histError.message,true);else if(hist){const regular=Number(hist.regular_hours||0),overtime=Number(hist.overtime_hours||0);const totalEl=$("adminWorkerTotalHours");if(totalEl&&totalEl.textContent==="0:00"&&(regular+overtime)>0)totalEl.textContent=durationLabel((regular+overtime)*3600000);}
-}
-$("adminDetailMonthPicker").addEventListener("change",async()=>{
- const m=$("adminDetailMonthPicker").value;
- if(!m)return;
- $("adminMonthPicker").value=m;
- await renderSelectedAdminWorker();
-});
-
+async function renderSelectedAdminWorker(){const selected=adminMonth(),bounds=monthBounds(selected);const {data,error}=await db.from("work_hours").select("id,worker_id,event_type,event_time,latitude,longitude").gte("event_time",new Date(new Date(bounds.start).getTime()-36*60*60*1000).toISOString()).lt("event_time",bounds.end).order("event_time",{ascending:true}).limit(10000);if(error){msg("adminMessage","Podrobnosti delavca ni mogoče naložiti.",true);return}renderAdminWorkerDaily(data||[],$("adminWorkerPicker").value,new Date(bounds.start),new Date(bounds.end),new Date(),selected);$("adminDetailMonthText").textContent=`Mesec: ${selected}`;}
 $("refreshButton").addEventListener("click",loadAdmin);
 $("adminMonthPicker").addEventListener("change",loadAdmin);
 $("adminWorkerPicker").addEventListener("change",()=>loadAdmin());
@@ -329,38 +311,20 @@ $("allHours").addEventListener("click",async e=>{
   msg("adminMessage","Registracija je izbrisana.");await loadAdmin();await renderSelectedAdminWorker();
  }
 });
-let enteredUserId=null;
-let enteringUserId=null;
-async function enterOnce(authUser){
-  if(!authUser) return;
-  if(enteredUserId===authUser.id && profile) return;
-  if(enteringUserId===authUser.id) return;
-  enteringUserId=authUser.id;
-  try {
-    await enter(authUser);
-    if(profile && user && user.id===authUser.id) enteredUserId=authUser.id;
-  } catch(err) {
-    show("appPanel",false);show("loginPanel",true);
-    msg("loginMessage","Aplikacije ni mogoče naložiti: "+(err?.message||"neznana napaka"),true);
-  } finally {
-    if(enteringUserId===authUser.id) enteringUserId=null;
-  }
-}
 async function restoreSession(){
-  try {
-    const {data,error}=await db.auth.getSession();
-    if(error) throw error;
-    if(data.session) await enterOnce(data.session.user);
-    else {show("appPanel",false);show("loginPanel",true)}
-  } catch(err) {
-    show("appPanel",false);show("loginPanel",true);
-    msg("loginMessage","Seje ni mogoče obnoviti: "+(err?.message||"neznana napaka"),true);
-  }
+  const {data,error}=await db.auth.getSession();
+  if(error){show("appPanel",false);show("loginPanel",true);return}
+  if(data.session){
+    if(enteredUserId!==data.session.user.id){enteredUserId=data.session.user.id;await enter(data.session.user)}
+  }else{show("appPanel",false);show("loginPanel",true)}
 }
-// Login submit handles SIGNED_IN itself; auth events only handle sign-out to avoid entering twice.
-db.auth.onAuthStateChange((event)=>{
+db.auth.onAuthStateChange((event,session)=>{
+  if(session && (event==="SIGNED_IN" || event==="INITIAL_SESSION" || event==="TOKEN_REFRESHED")){
+    if(loginInProgress && event==="SIGNED_IN") return;
+    if(enteredUserId!==session.user.id){enteredUserId=session.user.id;Promise.resolve().then(()=>enter(session.user))}
+  }
   if(event==="SIGNED_OUT"){
-    enteredUserId=null;enteringUserId=null;user=profile=null;
+    enteredUserId=null;user=profile=null;
     if(liveTimer)clearInterval(liveTimer);liveTimer=null;
     show("appPanel",false);show("loginPanel",true);
   }
