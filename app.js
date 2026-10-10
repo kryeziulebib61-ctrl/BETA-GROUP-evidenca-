@@ -3,7 +3,7 @@ const $=id=>document.getElementById(id), url=window.BETA_SUPABASE_URL, key=windo
 const configured=url&&key&&!url.includes("PASTE_")&&!key.includes("PASTE_");
 const show=(id,yes)=>$(id).classList.toggle("hidden",!yes);
 const msg=(id,t,bad=false)=>{$(id).textContent=t;$(id).classList.toggle("error",bad)};
-let db,user,profile,exportRows=[],liveTimer=null,manualAdjustments=[],historicalManualHours=[],loginInProgress=false,enterPromise=null;
+let db,user,profile,exportRows=[],liveTimer=null,manualAdjustments=[],historicalManualHours=[],loginInProgress=false,enterPromise=null,enteredUserId=null;
 // Keep the login form visible even if the Supabase library/configuration fails to load.
 show("loginPanel",true);
 if(!configured||!window.supabase){
@@ -311,7 +311,6 @@ $("allHours").addEventListener("click",async e=>{
   msg("adminMessage","Registracija je izbrisana.");await loadAdmin();await renderSelectedAdminWorker();
  }
 });
-let enteredUserId=null;
 async function restoreSession(){
   const {data,error}=await db.auth.getSession();
   if(error){show("appPanel",false);show("loginPanel",true);return}
