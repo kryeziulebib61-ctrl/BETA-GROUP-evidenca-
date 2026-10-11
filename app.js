@@ -48,6 +48,19 @@ async function loadMine(){
  const {data,error}=await db.from("work_hours").select("id,event_type,event_time,latitude,longitude").eq("worker_id",user.id).gte("event_time",from).lt("event_time",bounds.end).order("event_time",{ascending:true});
  if(error){msg("clockMessage","Evidenca ni na voljo. Preverite povezavo.",true);return}
  const allRows=data||[], monthStart=new Date(bounds.start), monthEnd=new Date(bounds.end), now=new Date();
+ // Show the signed-in worker their own absences overlapping the selected month.
+ const monthLastDay=new Date(Number(picker.value.slice(0,4)),Number(picker.value.slice(5,7)),0).getDate();
+ const monthFirstDate=picker.value+"-01", monthLastDate=picker.value+"-"+String(monthLastDay).padStart(2,"0");
+ const {data:workerAbsences,error:workerAbsenceError}=await db.from("work_absences")
+   .select("absence_type,start_date,end_date,note")
+   .eq("worker_id",user.id).lte("start_date",monthLastDate).gte("end_date",monthFirstDate)
+   .order("start_date",{ascending:false});
+ const absenceBody=$("workerAbsenceRows");
+ if(absenceBody) absenceBody.innerHTML=workerAbsenceError
+   ?'<tr><td colspan="4">Odsotnosti trenutno niso na voljo.</td></tr>'
+   :(workerAbsences||[]).map(a=>`<tr><td>${esc(absenceLabels[a.absence_type]||a.absence_type||"—")}</td><td>${esc(a.start_date||"—")}</td><td>${esc(a.end_date||"—")}</td><td>${esc(a.note||"—")}</td></tr>`).join("")||'<tr><td colspan="4">Za izbrani mesec ni zabeleženih odsotnosti.</td></tr>';
+ const absenceMessage=$("workerAbsenceMessage");
+ if(absenceMessage){absenceMessage.textContent=workerAbsenceError?"Odsotnosti ni mogoče naložiti. Preverite pravila dostopa za work_absences.":"";absenceMessage.classList.toggle("error",!!workerAbsenceError)}
  const {data:manualData,error:manualReadError}=await db.from("work_hour_adjustments").select("night_hours,overtime_hours").eq("worker_id",user.id).eq("month",picker.value).maybeSingle();
  $("workerManualNightHours").textContent=manualReadError?"—":`${Number(manualData?.night_hours||0).toLocaleString("sl-SI")} h`;
  $("workerManualOvertimeHours").textContent=manualReadError?"—":`${Number(manualData?.overtime_hours||0).toLocaleString("sl-SI")} h`;
