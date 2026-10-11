@@ -39,7 +39,7 @@ function currentMonth(){const d=new Date();return `${d.getFullYear()}-${String(d
 function monthBounds(value){const [y,m]=value.split("-").map(Number);return {start:new Date(y,m-1,1).toISOString(),end:new Date(y,m,1).toISOString()}}
 function durationLabel(ms){const mins=Math.max(0,Math.floor(ms/60000));return `${Math.floor(mins/60)}:${String(mins%60).padStart(2,"0")}`}
 function nightMilliseconds(start,end){let total=0;const first=new Date(start.getFullYear(),start.getMonth(),start.getDate()-1);for(let d=new Date(first);d<=end;d.setDate(d.getDate()+1)){const n1=new Date(d.getFullYear(),d.getMonth(),d.getDate(),22,0,0,0),n2=new Date(d.getFullYear(),d.getMonth(),d.getDate()+1,6,0,0,0);total+=Math.max(0,Math.min(end,n2)-Math.max(start,n1));}return total}
-const absenceLabels={holiday:"Praznik",vacation:"Dopust",sickness:"Bolniška"};
+const absenceLabels={holiday:"Praznik",vacation:"Dopust",sickness:"Bolniška",Praznik:"Praznik",Dopust:"Dopust","Bolniška":"Bolniška"};
 async function loadMine(){
  const picker=$("monthPicker");if(!picker.value)picker.value=currentMonth();
  const bounds=monthBounds(picker.value);
@@ -151,33 +151,32 @@ async function loadAdmin(){
   db.from("work_hours").select("id,worker_id,event_type,event_time,latitude,longitude").gte("event_time",from).lt("event_time",bounds.end).order("event_time",{ascending:true}).limit(10000),
   db.from("work_absences").select("id,worker_id,absence_type,start_date,end_date,note").lte("start_date",selected+"-"+String(new Date(new Date(bounds.end).getTime()-86400000).getDate()).padStart(2,"0")).gte("end_date",selected+"-01").order("start_date",{ascending:false}),
   db.from("work_hour_adjustments").select("id,worker_id,month,night_hours,overtime_hours,note").eq("month",selected),
-  db.from("monthly_manual_hours").select("id,worker_name,work_month,regular_hours,overtime_hours,night_hours,entry_type,created_at").eq("work_month",selected+"-01").order("worker_name")
+  db.from("monthly_manual_hours").select("id,worker_name,work_month,regular_hours,overtime_hours,night_hours,entry_type").eq("work_month",selected+"-01")
  ]);
  if(wr.error||hr.error){msg("adminMessage","Podatkov ni mogoče naložiti. Preverite pravila dostopa.",true);return}
  const workers=wr.data||[],map=Object.fromEntries(workers.map(w=>[w.id,w])),all=hr.data||[],monthStart=new Date(bounds.start),monthEnd=new Date(bounds.end),now=new Date();
  const absences=ar.error?[]:(ar.data||[]);
  manualAdjustments=adj.error?[]:(adj.data||[]);
- historicalManualHours=hist.error?[]:(hist.data||[]);
- if(hist.error){msg("historicalHoursMessage","Zgodovinskih ur ni mogoče naložiti. Preverite tabelo monthly_manual_hours in pravila dostopa v Supabase.",true)}
  if(adj.error){msg("manualHoursMessage","Za ročni vnos ur najprej zaženite FAZA-3-SUPABASE.sql v Supabase SQL Editor.",true)}
  if(ar.error){msg("absenceMessage","Najprej zaženite SQL datoteko FAZA-2-SUPABASE.sql v Supabase SQL Editor.",true)}else{msg("absenceMessage","")}
  const absenceWorker=$("absenceWorker");const oldAbsenceWorker=absenceWorker.value;absenceWorker.innerHTML='<option value="">Izberite delavca</option>'+workers.filter(w=>!w.is_admin).map(w=>`<option value="${esc(w.id)}">${esc(w.full_name)}</option>`).join("");if(oldAbsenceWorker&&workers.some(w=>w.id===oldAbsenceWorker))absenceWorker.value=oldAbsenceWorker;
  const manualPicker=$("manualHoursWorker"),oldManualWorker=manualPicker.value;manualPicker.innerHTML='<option value="">Izberite delavca</option>'+workers.filter(w=>!w.is_admin).map(w=>`<option value="${esc(w.id)}">${esc(w.full_name)}</option>`).join("");if(oldManualWorker&&workers.some(w=>w.id===oldManualWorker))manualPicker.value=oldManualWorker;else if(workers.some(w=>!w.is_admin))manualPicker.value=workers.find(w=>!w.is_admin).id;
  $("manualHoursMonth").value=selected;
- const historicalPicker=$("historicalWorker"),oldHistoricalWorker=historicalPicker.value;
- historicalPicker.innerHTML='<option value="">Izberite delavca</option>'+workers.filter(w=>!w.is_admin).map(w=>`<option value="${esc(w.id)}">${esc(w.full_name)}</option>`).join("");
- if(oldHistoricalWorker&&workers.some(w=>w.id===oldHistoricalWorker))historicalPicker.value=oldHistoricalWorker;
- else if(workers.some(w=>!w.is_admin))historicalPicker.value=workers.find(w=>!w.is_admin).id;
- $("historicalMonth").value=selected;
- renderHistoricalHours();
  const monthAbsences=absences.filter(a=>a.start_date<selected+"-"+String(new Date(new Date(bounds.end).getTime()-86400000).getDate()).padStart(2,"0")&&a.end_date>=selected+"-01");
  $("absenceRows").innerHTML=monthAbsences.map(a=>`<tr><td>${esc(map[a.worker_id]?.full_name||a.worker_id)}</td><td>${esc(absenceLabels[a.absence_type]||a.absence_type)}</td><td>${esc(a.start_date)}</td><td>${esc(a.end_date)}</td><td>${esc(a.note||"—")}</td><td><button type="button" class="danger absence-delete" data-absence-id="${esc(a.id)}">Izbriši</button></td></tr>`).join("")||'<tr><td colspan="6">Za izbrani mesec ni odsotnosti.</td></tr>';
  $("workersTable").innerHTML=workers.map(w=>`<tr><td>${esc(w.full_name)}</td><td>${esc(w.id)}</td><td>${w.active?"Aktiven":"Neaktiven"}${w.is_admin?" · Administrator":""}</td></tr>`).join("")||'<tr><td colspan="3">Ni delavcev.</td></tr>';
  const byWorker={};for(const r of all){if(!byWorker[r.worker_id])byWorker[r.worker_id]=[];byWorker[r.worker_id].push(r)}
  const adjustmentMap=Object.fromEntries(manualAdjustments.map(a=>[a.worker_id,a]));
+ const historicalByName=Object.fromEntries((hist.data||[]).map(r=>[String(r.worker_name||"").trim().toLocaleLowerCase(),r]));
+ if(hist.error){msg("adminMessage","Historike: orët e muajit nuk mund të ngarkohen nga monthly_manual_hours. Kontrolloni lejet e leximit në Supabase.",true)}
  const summary=workers.map(w=>{const events=(byWorker[w.id]||[]).slice().sort((a,b)=>new Date(a.event_time)-new Date(b.event_time));let open=null,total=0,night=0;const days=new Set();for(const r of events){const t=new Date(r.event_time);if(r.event_type==="arrival"){if(open===null)open=t}else if(r.event_type==="departure"&&open!==null){const rawStart=open,rawEnd=t,s=new Date(Math.max(rawStart.getTime(),monthStart.getTime())),e=new Date(Math.min(rawEnd.getTime(),monthEnd.getTime()));if(e>s){total+=e-s;night+=nightMilliseconds(s,e);let cur=new Date(s);while(cur<e){days.add(`${cur.getFullYear()}-${cur.getMonth()}-${cur.getDate()}`);cur=new Date(cur.getFullYear(),cur.getMonth(),cur.getDate()+1)}}open=null}}
   let ongoing=false;if(open!==null){const s=new Date(Math.max(open.getTime(),monthStart.getTime())),e=new Date(Math.min(now.getTime(),monthEnd.getTime()));if(e>s){total+=e-s;night+=nightMilliseconds(s,e);ongoing=true;let cur=new Date(s);while(cur<e){days.add(`${cur.getFullYear()}-${cur.getMonth()}-${cur.getDate()}`);cur=new Date(cur.getFullYear(),cur.getMonth(),cur.getDate()+1)}}}
-  const adjustment=adjustmentMap[w.id]||{};return {name:w.full_name,active:w.active,total,night,manualNight:Number(adjustment.night_hours||0),overtime:Number(adjustment.overtime_hours||0),days:days.size,ongoing};});
+  const adjustment=adjustmentMap[w.id]||{};
+  const historical=historicalByName[String(w.full_name||"").trim().toLocaleLowerCase()]||{};
+  const historicalRegular=Math.max(0,Number(historical.regular_hours||0));
+  const historicalOvertime=Math.max(0,Number(historical.overtime_hours||0));
+  const historicalNight=Math.max(0,Number(historical.night_hours||0));
+  return {name:w.full_name,active:w.active,total:total+(historicalRegular+historicalOvertime)*3600000,night:night+historicalNight*3600000,manualNight:Number(adjustment.night_hours||0),overtime:Number(adjustment.overtime_hours||0)+historicalOvertime,days:days.size,ongoing,historical:!!historical.work_month};});
  const fmt=ms=>{const n=Math.max(0,Math.floor(ms/60000));return `${Math.floor(n/60)}:${String(n%60).padStart(2,"0")}`};
  $("adminMonthlyHours").innerHTML=summary.map((s,i)=>{const w=workers[i];return `<tr><td><button type="button" class="worker-open secondary" data-worker-id="${esc(w.id)}">${esc(s.name)} ↗</button></td><td>${s.days}</td><td><strong>${fmt(s.total)}</strong></td><td>${fmt(s.night)}</td><td>${s.manualNight.toLocaleString("sl-SI")} h</td><td>${s.overtime.toLocaleString("sl-SI")} h</td><td>${s.ongoing?"Delo še poteka":s.active?"Aktiven":"Neaktiven"}</td></tr>`}).join("")||'<tr><td colspan="7">Ni delavcev.</td></tr>';
  const workerPicker=$("adminWorkerPicker");
@@ -192,45 +191,12 @@ async function loadAdmin(){
  $("allHours").innerHTML=rows.slice().map(r=>`<tr><td>${esc(date(r.event_time))}</td><td>${esc(map[r.worker_id]?.full_name||r.worker_id)}</td><td>${esc(label(r.event_type))}</td><td>${esc(gps(r))}</td><td>${mapLink(r)}</td><td><div class="record-actions"><button type="button" class="secondary record-edit" data-edit-id="${esc(r.id)}">Uredi</button><button type="button" class="danger record-delete" data-delete-id="${esc(r.id)}">Izbriši</button></div></td></tr>`).join("")||'<tr><td colspan="6">Za izbrani mesec ni zapisov.</td></tr>';
  msg("adminMessage",`Mesec ${selected}: ${workers.length} delavcev, ${rows.length} registracij.`);loadManualAdjustmentForm()
 }
-function renderHistoricalHours(){
- const body=$("historicalHoursRows");
- if(!body)return;
- body.innerHTML=historicalManualHours.map(r=>`<tr><td>${esc(r.worker_name)}</td><td>${esc(String(r.work_month||"").slice(0,7))}</td><td>${Number(r.regular_hours||0).toLocaleString("sl-SI")} h</td><td>${Number(r.overtime_hours||0).toLocaleString("sl-SI")} h</td><td>${Number(r.night_hours||0).toLocaleString("sl-SI")} h</td></tr>`).join("")||'<tr><td colspan="5">Za izbrani mesec ni zgodovinskih vnosov.</td></tr>';
-}
-$("historicalMonth").addEventListener("change",async()=>{
- const m=$("historicalMonth").value;
- if(m&&m!==adminMonth()){$("adminMonthPicker").value=m;await loadAdmin();}
-});
-$("historicalHoursForm").addEventListener("submit",async e=>{
- e.preventDefault();
- if(!profile?.is_admin){msg("historicalHoursMessage","Samo administrator lahko shrani zgodovinske ure.",true);return}
- const workerId=$("historicalWorker").value,month=$("historicalMonth").value;
- const workerName=$("historicalWorker").selectedOptions[0]?.textContent||"";
- const regular=Number($("historicalRegularHours").value),overtime=Number($("historicalOvertimeHours").value),night=Number($("historicalNightHours").value);
- const button=$("historicalHoursSave");
- if(!workerId||!month||!workerName||![regular,overtime,night].every(v=>Number.isFinite(v)&&v>=0&&v<=1000)){
-   msg("historicalHoursMessage","Preverite delavca, mesec in vse vrednosti ur.",true);return;
- }
- const payload={worker_name:workerName,work_month:month+"-01",regular_hours:regular,overtime_hours:overtime,night_hours:night,entry_type:"manual",created_by:user.id};
- button.disabled=true;msg("historicalHoursMessage","Shranjevanje zgodovinskih ur ...");
- try{
-   const {data,error}=await db.from("monthly_manual_hours").upsert(payload,{onConflict:"worker_name,work_month"}).select("id,worker_name,work_month,regular_hours,overtime_hours,night_hours,entry_type,created_at").single();
-   if(error)throw error;
-   if(!data)throw new Error("Supabase ni potrdil shranjevanja.");
-   historicalManualHours=historicalManualHours.filter(r=>!(r.worker_name===workerName&&String(r.work_month).slice(0,10)===month+"-01")).concat(data).sort((a,b)=>a.worker_name.localeCompare(b.worker_name));
-   renderHistoricalHours();
-   await loadAdmin();
-   msg("historicalHoursMessage","Zgodovinske mesečne ure so shranjene.");
- }catch(err){
-   msg("historicalHoursMessage","Shranjevanje ni uspelo: "+(err?.message||"neznana napaka")+". Preverite pravila dostopa v Supabase.",true);
- }finally{button.disabled=false}
-});
 function loadManualAdjustmentForm(){const workerId=$("manualHoursWorker").value,month=$("manualHoursMonth").value||adminMonth(),a=manualAdjustments.find(x=>x.worker_id===workerId&&x.month===month);$("manualNightHours").value=a?Number(a.night_hours||0):0;$("manualOvertimeHours").value=a?Number(a.overtime_hours||0):0;$("manualHoursNote").value=a?.note||"";if(!a && !$("manualHoursMessage").classList.contains("error"))msg("manualHoursMessage","");}
 $("manualHoursWorker").addEventListener("change",loadManualAdjustmentForm);$("manualHoursMonth").addEventListener("change",async()=>{const m=$("manualHoursMonth").value;if(m&&m!==adminMonth()){$("adminMonthPicker").value=m;await loadAdmin()}loadManualAdjustmentForm()});
 $("manualHoursForm").addEventListener("submit",async e=>{e.preventDefault();if(!profile?.is_admin){msg("manualHoursMessage","Samo administrator lahko shrani ročne ure.",true);return}const workerId=$("manualHoursWorker").value,month=$("manualHoursMonth").value,night=Number($("manualNightHours").value),overtime=Number($("manualOvertimeHours").value),note=$("manualHoursNote").value.trim(),button=$("manualHoursForm").querySelector('button[type="submit"]');if(!workerId||!month||!Number.isFinite(night)||!Number.isFinite(overtime)||night<0||overtime<0){msg("manualHoursMessage","Preverite delavca, mesec in ure.",true);return}const payload={worker_id:workerId,month,night_hours:night,overtime_hours:overtime,note:note||null,created_by:user.id,updated_at:new Date().toISOString()};button.disabled=true;msg("manualHoursMessage","Shranjevanje ur ...");try{const {data,error}=await db.from("work_hour_adjustments").upsert(payload,{onConflict:"worker_id,month"}).select("id,worker_id,month,night_hours,overtime_hours,note").single();if(error)throw error;if(!data)throw new Error("Supabase ni potrdil shranjevanja.");manualAdjustments=manualAdjustments.filter(a=>!(a.worker_id===workerId&&a.month===month)).concat(data);msg("manualHoursMessage","Ročne nočne ure in nadure so shranjene.");await loadAdmin();loadManualAdjustmentForm();msg("manualHoursMessage","Ročne nočne ure in nadure so shranjene.");}catch(err){msg("manualHoursMessage","Shranjevanje ni uspelo: "+(err?.message||"neznana napaka")+". Preverite FAZA-3-SUPABASE.sql.",true)}finally{button.disabled=false}});
 $("clearManualHours").addEventListener("click",async()=>{if(!profile?.is_admin)return;const workerId=$("manualHoursWorker").value,month=$("manualHoursMonth").value;if(!workerId||!month){msg("manualHoursMessage","Izberite delavca in mesec.",true);return}if(!confirm("Ali želite izbrisati ročni vnos ur za tega delavca in mesec?"))return;const {error}=await db.from("work_hour_adjustments").delete().eq("worker_id",workerId).eq("month",month);if(error){msg("manualHoursMessage","Brisanje ni uspelo: "+error.message,true);return}msg("manualHoursMessage","Ročni vnos je izbrisan.");await loadAdmin();loadManualAdjustmentForm()});
 
-$("absenceForm").addEventListener("submit",async e=>{e.preventDefault();if(!profile?.is_admin)return;const workerId=$("absenceWorker").value,type=$("absenceType").value,start=$("absenceStart").value,end=$("absenceEnd").value,note=$("absenceNote").value.trim();if(!workerId){msg("absenceMessage","Izberite delavca.",true);return}if(!start||!end||end<start){msg("absenceMessage","Datum konca mora biti enak ali poznejši od začetka.",true);return}const button=$("absenceForm").querySelector('button[type="submit"]');button.disabled=true;msg("absenceMessage","Shranjevanje odsotnosti ...");try{const {data,error}=await db.from("work_absences").insert({worker_id:workerId,absence_type:type,start_date:start,end_date:end,note:note||null,created_by:user.id}).select("id,worker_id,absence_type,start_date,end_date,note").single();if(error)throw error;if(!data)throw new Error("Supabase ni potrdil shranjevanja.");$("absenceNote").value="";msg("absenceMessage","Odsotnost je shranjena.");await loadAdmin()}catch(err){msg("absenceMessage","Shranjevanje ni uspelo: "+(err?.message||"neznana napaka"),true)}finally{button.disabled=false}});
+$("absenceForm").addEventListener("submit",async e=>{e.preventDefault();if(!profile?.is_admin)return;const workerId=$("absenceWorker").value,type=$("absenceType").value,start=$("absenceStart").value,end=$("absenceEnd").value,note=$("absenceNote").value.trim();if(!workerId){msg("absenceMessage","Izberite delavca.",true);return}if(!start||!end||end<start){msg("absenceMessage","Datum konca mora biti enak ali poznejši od začetka.",true);return}const dbAbsenceType=({holiday:"Praznik",vacation:"Dopust",sickness:"Bolniška"})[type]||type;const {error}=await db.from("work_absences").insert({worker_id:workerId,absence_type:dbAbsenceType,start_date:start,end_date:end,note:note||null});if(error){msg("absenceMessage","Shranjevanje ni uspelo: "+error.message,true);return}$("absenceNote").value="";msg("absenceMessage","Odsotnost je shranjena.");await loadAdmin()});
 $("absenceRows").addEventListener("click",async e=>{const b=e.target.closest("[data-absence-id]");if(!b||!profile?.is_admin)return;if(!confirm("Ali res želite izbrisati to odsotnost?"))return;const {error}=await db.from("work_absences").delete().eq("id",b.dataset.absenceId);if(error){msg("absenceMessage","Brisanje ni uspelo: "+error.message,true);return}msg("absenceMessage","Odsotnost je izbrisana.");await loadAdmin()});
 $("addWorkerForm").addEventListener("submit",async e=>{e.preventDefault();const name=$("workerName").value.trim(),id=$("workerUid").value.trim();const btn=$("addWorkerButton");btn.disabled=true;msg("addWorkerMessage","Shranjevanje profila ...");try{const {error}=await db.from("workers").insert({id,full_name:name,is_admin:false,active:true});if(error)throw error;$("workerName").value="";$("workerUid").value="";msg("addWorkerMessage","Profil delavca je dodan. Delavec se lahko prijavi z računom, ki ste ga ustvarili v Supabase Auth.");await loadAdmin()}catch(e){msg("addWorkerMessage",e.message||"Profila ni bilo mogoče dodati. Preverite User UID in pravila dostopa.",true)}finally{btn.disabled=false}});
  $("adminMonthlyHours").addEventListener("click",async e=>{
