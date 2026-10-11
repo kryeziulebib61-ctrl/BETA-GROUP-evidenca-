@@ -110,13 +110,14 @@ async function loadMine(){
    const last=departures[key]||null;
    return {key,firstArrival:arrivals[key]||null,lastDeparture:last,ms,open:!!hasOpen[key]};
  });
- $("monthTotal").textContent=durationLabel(totalMs);$("monthDays").textContent=String(workedDays);$("monthEvents").textContent=String(allRows.filter(r=>new Date(r.event_time)>=monthStart&&new Date(r.event_time)<monthEnd).length);
+ const historicalHoursMs=(Number(historicalData?.regular_hours||0)+Number(historicalData?.overtime_hours||0))*3600000;
+ $("monthTotal").textContent=durationLabel(totalMs+historicalHoursMs);$("monthDays").textContent=String(workedDays);$("monthEvents").textContent=String(allRows.filter(r=>new Date(r.event_time)>=monthStart&&new Date(r.event_time)<monthEnd).length);
  $("monthlyHours").innerHTML=daily.map(d=>`<tr><td>${esc(new Date(`${d.key}T12:00:00`).toLocaleDateString("sl-SI"))}</td><td>${d.firstArrival?esc(new Date(d.firstArrival).toLocaleTimeString("sl-SI",{hour:"2-digit",minute:"2-digit"})):"—"}</td><td>${d.lastDeparture?esc(new Date(d.lastDeparture).toLocaleTimeString("sl-SI",{hour:"2-digit",minute:"2-digit"})):"—"}</td><td><strong>${durationLabel(d.ms)}</strong></td><td>${d.open?"Delo še poteka · ure se samodejno štejejo":d.ms>0?"Zaključeno":"Brez para prihod/odhod"}</td></tr>`).join("")||'<tr><td colspan="5">Za ta mesec še ni zapisov.</td></tr>';
  const rows=allRows.filter(r=>new Date(r.event_time)>=monthStart&&new Date(r.event_time)<monthEnd);
  $("myHours").innerHTML=rows.slice().sort((a,b)=>new Date(b.event_time)-new Date(a.event_time)).map(r=>`<tr><td>${esc(date(r.event_time))}</td><td>${esc(label(r.event_type))}</td><td>${esc(gps(r))}</td></tr>`).join("")||'<tr><td colspan="3">Za ta mesec še ni zapisov.</td></tr>';
 }
 function adminMonth(){const p=$("adminMonthPicker");if(!p.value){const d=new Date();p.value=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`}return p.value}
-function renderAdminWorkerDaily(all,workerId,monthStart,monthEnd,now,selected){
+function renderAdminWorkerDaily(all,workerId,monthStart,monthEnd,now,selected,historicalHours={}){
  const body=$("adminWorkerDailyHours");$("adminWorkerMonthLabel").textContent=selected;
  const totalHours=$("adminWorkerTotalHours"),totalDays=$("adminWorkerTotalDays");
  if(!workerId){body.innerHTML='<tr><td colspan="6">Izberite delavca za pregled.</td></tr>';if(totalHours)totalHours.textContent="0:00";if(totalDays)totalDays.textContent="0";return}
@@ -151,7 +152,9 @@ function renderAdminWorkerDaily(all,workerId,monthStart,monthEnd,now,selected){
    ?`<a href="https://www.google.com/maps?q=${encodeURIComponent(`${r.latitude},${r.longitude}`)}" target="_blank" rel="noopener noreferrer">${caption}</a>`
    :"—";
  const keys=Object.keys(daily).sort((a,b)=>b.localeCompare(a));
- const totalMs=keys.reduce((sum,k)=>sum+(daily[k].ms||0),0);
+ const recordedMs=keys.reduce((sum,k)=>sum+(daily[k].ms||0),0);
+ const historicalMs=(Number(historicalHours.regular_hours||0)+Number(historicalHours.overtime_hours||0))*3600000;
+ const totalMs=recordedMs+historicalMs;
  const workedDays=keys.filter(k=>(daily[k].ms||0)>0).length;
  if(totalHours)totalHours.textContent=durationLabel(totalMs);
  if(totalDays)totalDays.textContent=String(workedDays);
@@ -247,7 +250,7 @@ $("addWorkerForm").addEventListener("submit",async e=>{e.preventDefault();const 
 $("backToAdminHome").addEventListener("click",()=>{show("adminWorkerDetailPage",false);show("adminHomePage",true);window.scrollTo({top:0,behavior:"auto"});});
 $("showAdminDailyTable").addEventListener("click",()=>{show("adminWorkerSummaryPage",false);show("adminWorkerTablePage",true);window.scrollTo({top:0,behavior:"auto"});});
 $("backToAdminWorkerSummary").addEventListener("click",()=>{show("adminWorkerTablePage",false);show("adminWorkerSummaryPage",true);window.scrollTo({top:0,behavior:"auto"});});
-async function renderSelectedAdminWorker(){const selected=adminMonth(),bounds=monthBounds(selected);const {data,error}=await db.from("work_hours").select("id,worker_id,event_type,event_time,latitude,longitude").gte("event_time",new Date(new Date(bounds.start).getTime()-36*60*60*1000).toISOString()).lt("event_time",bounds.end).order("event_time",{ascending:true}).limit(10000);if(error){msg("adminMessage","Podrobnosti delavca ni mogoče naložiti.",true);return}renderAdminWorkerDaily(data||[],$("adminWorkerPicker").value,new Date(bounds.start),new Date(bounds.end),new Date(),selected);$("adminDetailMonthText").textContent=`Mesec: ${selected}`;}
+async function renderSelectedAdminWorker(){const selected=adminMonth(),bounds=monthBounds(selected),workerId=$("adminWorkerPicker").value;const [{data,error},{data:workerData,error:workerError}]=await Promise.all([db.from("work_hours").select("id,worker_id,event_type,event_time,latitude,longitude").gte("event_time",new Date(new Date(bounds.start).getTime()-36*60*60*1000).toISOString()).lt("event_time",bounds.end).order("event_time",{ascending:true}).limit(10000),db.from("workers").select("full_name").eq("id",workerId).maybeSingle()]);if(error){msg("adminMessage","Podrobnosti delavca ni mogoče naložiti.",true);return}let historical={};if(!workerError&&workerData?.full_name){const {data:manual,error:manualError}=await db.from("monthly_manual_hours").select("regular_hours,overtime_hours,night_hours").eq("worker_name",workerData.full_name).eq("work_month",selected+"-01").maybeSingle();if(!manualError&&manual)historical=manual;}renderAdminWorkerDaily(data||[],workerId,new Date(bounds.start),new Date(bounds.end),new Date(),selected,historical);$("adminDetailMonthText").textContent=`Mesec: ${selected}`;}
 $("refreshButton").addEventListener("click",loadAdmin);
 $("adminMonthPicker").addEventListener("change",loadAdmin);
 $("adminWorkerPicker").addEventListener("change",()=>loadAdmin());
