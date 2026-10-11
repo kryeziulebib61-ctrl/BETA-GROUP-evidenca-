@@ -52,6 +52,16 @@ async function loadMine(){
  $("workerManualNightHours").textContent=manualReadError?"—":`${Number(manualData?.night_hours||0).toLocaleString("sl-SI")} h`;
  $("workerManualOvertimeHours").textContent=manualReadError?"—":`${Number(manualData?.overtime_hours||0).toLocaleString("sl-SI")} h`;
  msg("workerManualHoursMessage",manualReadError?"Ročnih ur ni mogoče naložiti. Administrator naj preveri FAZA-3-SUPABASE.sql in pravila dostopa.":"",!!manualReadError);
+ // Historical hours entered by the administrator are kept separate from automatic clock totals.
+ const {data:historicalData,error:historicalError}=await db.from("monthly_manual_hours")
+   .select("regular_hours,overtime_hours,night_hours")
+   .eq("worker_name",profile.full_name)
+   .eq("work_month",`${picker.value}-01`)
+   .maybeSingle();
+ $("historicalRegularHours").textContent=historicalError?"—":`${Number(historicalData?.regular_hours||0).toLocaleString("sl-SI")} h`;
+ $("historicalOvertimeHours").textContent=historicalError?"—":`${Number(historicalData?.overtime_hours||0).toLocaleString("sl-SI")} h`;
+ $("historicalNightHours").textContent=historicalError?"—":`${Number(historicalData?.night_hours||0).toLocaleString("sl-SI")} h`;
+ msg("historicalHoursMessage",historicalError?"Zgodovinskih ročnih ur ni mogoče naložiti. Administrator naj preveri pravila dostopa (RLS) za monthly_manual_hours.":"",!!historicalError);
  const days={};
  // Pair events in time order. An open arrival counts up to the current time automatically.
  let open=null; const intervals=[];
@@ -146,12 +156,11 @@ function renderAdminWorkerDaily(all,workerId,monthStart,monthEnd,now,selected){
 async function loadAdmin(){
  const selected=adminMonth(),bounds=monthBounds(selected),from=new Date(new Date(bounds.start).getTime()-36*60*60*1000).toISOString();
  msg("adminMessage","Nalaganje podatkov ...");
- const [wr,hr,ar,adj,hist]=await Promise.all([
+ const [wr,hr,ar,adj]=await Promise.all([
   db.from("workers").select("id,full_name,active,is_admin").order("full_name"),
   db.from("work_hours").select("id,worker_id,event_type,event_time,latitude,longitude").gte("event_time",from).lt("event_time",bounds.end).order("event_time",{ascending:true}).limit(10000),
   db.from("work_absences").select("id,worker_id,absence_type,start_date,end_date,note").lte("start_date",selected+"-"+String(new Date(new Date(bounds.end).getTime()-86400000).getDate()).padStart(2,"0")).gte("end_date",selected+"-01").order("start_date",{ascending:false}),
-  db.from("work_hour_adjustments").select("id,worker_id,month,night_hours,overtime_hours,note").eq("month",selected),
-  db.from("monthly_manual_hours").select("id,worker_name,work_month,regular_hours,overtime_hours,night_hours,entry_type").eq("work_month",selected+"-01")
+  db.from("work_hour_adjustments").select("id,worker_id,month,night_hours,overtime_hours,note").eq("month",selected)
  ]);
  if(wr.error||hr.error){msg("adminMessage","Podatkov ni mogoče naložiti. Preverite pravila dostopa.",true);return}
  const workers=wr.data||[],map=Object.fromEntries(workers.map(w=>[w.id,w])),all=hr.data||[],monthStart=new Date(bounds.start),monthEnd=new Date(bounds.end),now=new Date();
@@ -167,16 +176,9 @@ async function loadAdmin(){
  $("workersTable").innerHTML=workers.map(w=>`<tr><td>${esc(w.full_name)}</td><td>${esc(w.id)}</td><td>${w.active?"Aktiven":"Neaktiven"}${w.is_admin?" · Administrator":""}</td></tr>`).join("")||'<tr><td colspan="3">Ni delavcev.</td></tr>';
  const byWorker={};for(const r of all){if(!byWorker[r.worker_id])byWorker[r.worker_id]=[];byWorker[r.worker_id].push(r)}
  const adjustmentMap=Object.fromEntries(manualAdjustments.map(a=>[a.worker_id,a]));
- const historicalByName=Object.fromEntries((hist.data||[]).map(r=>[String(r.worker_name||"").trim().toLocaleLowerCase(),r]));
- if(hist.error){msg("adminMessage","Historike: orët e muajit nuk mund të ngarkohen nga monthly_manual_hours. Kontrolloni lejet e leximit në Supabase.",true)}
  const summary=workers.map(w=>{const events=(byWorker[w.id]||[]).slice().sort((a,b)=>new Date(a.event_time)-new Date(b.event_time));let open=null,total=0,night=0;const days=new Set();for(const r of events){const t=new Date(r.event_time);if(r.event_type==="arrival"){if(open===null)open=t}else if(r.event_type==="departure"&&open!==null){const rawStart=open,rawEnd=t,s=new Date(Math.max(rawStart.getTime(),monthStart.getTime())),e=new Date(Math.min(rawEnd.getTime(),monthEnd.getTime()));if(e>s){total+=e-s;night+=nightMilliseconds(s,e);let cur=new Date(s);while(cur<e){days.add(`${cur.getFullYear()}-${cur.getMonth()}-${cur.getDate()}`);cur=new Date(cur.getFullYear(),cur.getMonth(),cur.getDate()+1)}}open=null}}
   let ongoing=false;if(open!==null){const s=new Date(Math.max(open.getTime(),monthStart.getTime())),e=new Date(Math.min(now.getTime(),monthEnd.getTime()));if(e>s){total+=e-s;night+=nightMilliseconds(s,e);ongoing=true;let cur=new Date(s);while(cur<e){days.add(`${cur.getFullYear()}-${cur.getMonth()}-${cur.getDate()}`);cur=new Date(cur.getFullYear(),cur.getMonth(),cur.getDate()+1)}}}
-  const adjustment=adjustmentMap[w.id]||{};
-  const historical=historicalByName[String(w.full_name||"").trim().toLocaleLowerCase()]||{};
-  const historicalRegular=Math.max(0,Number(historical.regular_hours||0));
-  const historicalOvertime=Math.max(0,Number(historical.overtime_hours||0));
-  const historicalNight=Math.max(0,Number(historical.night_hours||0));
-  return {name:w.full_name,active:w.active,total:total+(historicalRegular+historicalOvertime)*3600000,night:night+historicalNight*3600000,manualNight:Number(adjustment.night_hours||0),overtime:Number(adjustment.overtime_hours||0)+historicalOvertime,days:days.size,ongoing,historical:!!historical.work_month};});
+  const adjustment=adjustmentMap[w.id]||{};return {name:w.full_name,active:w.active,total,night,manualNight:Number(adjustment.night_hours||0),overtime:Number(adjustment.overtime_hours||0),days:days.size,ongoing};});
  const fmt=ms=>{const n=Math.max(0,Math.floor(ms/60000));return `${Math.floor(n/60)}:${String(n%60).padStart(2,"0")}`};
  $("adminMonthlyHours").innerHTML=summary.map((s,i)=>{const w=workers[i];return `<tr><td><button type="button" class="worker-open secondary" data-worker-id="${esc(w.id)}">${esc(s.name)} ↗</button></td><td>${s.days}</td><td><strong>${fmt(s.total)}</strong></td><td>${fmt(s.night)}</td><td>${s.manualNight.toLocaleString("sl-SI")} h</td><td>${s.overtime.toLocaleString("sl-SI")} h</td><td>${s.ongoing?"Delo še poteka":s.active?"Aktiven":"Neaktiven"}</td></tr>`}).join("")||'<tr><td colspan="7">Ni delavcev.</td></tr>';
  const workerPicker=$("adminWorkerPicker");
